@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Brick Breaker PWA</title>
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#0f1226" />
+  <style>
+    html, body { height: 100%; margin: 0; background: #0f1226; color: #eaeaf0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, sans-serif; }
+    #wrap { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 12px; }
+    canvas { background: #11162e; border: 1px solid #2a2f55; box-shadow: 0 0 24px rgba(34, 102, 255, 0.25); }
+    .hud { display: flex; gap: 16px; align-items: center; justify-content: center; flex-wrap: wrap; }
+    .btn { background: #2266ff; color: white; border: none; padding: 8px 12px; border-radius: 6px; cursor: pointer; }
+    .legend { font-size: 13px; opacity: 0.85; max-width: 800px; text-align: center; }
+    .tag { padding: 2px 8px; border-radius: 999px; background: #1b2a5e; font-size: 12px; }
+  </style>
+</head>
+<body>
+  <div id="wrap">
+    <h1>Brick Breaker – PWA</h1>
+    <div class="hud">
+      <div class="tag">Scor: <span id="score">0</span></div>
+      <div class="tag">Vieți: <span id="lives">3</span></div>
+      <div class="tag">Nivel: <span id="level">1</span></div>
+      <button id="reset" class="btn">Reset</button>
+      <button id="pause" class="btn">Pauză</button>
+      <button id="installBtn" class="btn" style="display:none">Instalează</button>
+    </div>
+    <canvas id="game" width="800" height="600" aria-label="Brick Breaker"></canvas>
+    <div class="legend">
+      Controale: <strong>← / →</strong> sau <strong>A / D</strong>; <strong>P</strong> pauză; <strong>R</strong> reset.<br/>
+      Power-up-uri: <em>MultiBall</em> (albastru), <em>Wide</em> (galben), <em>Pierce</em> (roz), <em>Split</em> (turcoaz).
+    </div>
+  </div>
+
+  <script>
+  // PWA: service worker
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('./service-worker.js');
+    });
+  }
+  let deferredPrompt; const installBtn = document.getElementById('installBtn');
+  window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault(); deferredPrompt = e; installBtn.style.display = 'inline-block';
+  });
+  installBtn?.addEventListener('click', async () => {
+    if (!deferredPrompt) return; deferredPrompt.prompt(); const { outcome } = await deferredPrompt.userChoice; deferredPrompt = null; installBtn.style.display = 'none';
+  });
+
+  // ==== Parametri joc ====
+  const W = 800, H = 600;
+  const PADDLE_W = 110, PADDLE_H = 12, PADDLE_SPEED = 540;
+  const BALL_RADIUS = 7;
+  const INIT_BALL_SPEED = 320;
+  const BRICK_ROWS = 10, BRICK_COLS = 16, BRICK_W = 42, BRICK_H = 16, BRICK_GAP = 2;
+  const POWERUP_DROP_CHANCE = 0.28; // puțin mai generos
+  const MAX_BALLS = 40;
+  const LEVELS = 3;
+
+  // Culoar setări
+  const CORRIDOR_WIDTH = 2;
+
+  // ==== Sunete (AudioContext minimal) ====
+  const AudioCtx = window.AudioContext || window.webkitAudioContext;
+  const audioCtx = new AudioCtx();
+  function beep(freq=440, duration=0.06, type='sine', vol=0.08) {
+    const o = audioCtx.createOscillator(); const g = audioCtx.createGain();
+    o.type = type; o.frequency.value = freq; g.gain.value = vol; o.connect(g); g.connect(audioCtx.destination); o.start(); setTimeout(()=>o.stop(), duration*1000);
+  }
+  const sfx = {
+    bounce() { beep(420,0.03,'square',0.07); },
+    brick() { beep(620,0.05,'triangle',0.08); },
+    power() { beep(880,0.08,'sine',0.09); },
+    lose() { beep(220,0.25,'sawtooth',0.08); },
+    win() { beep(980,0.20,'sine',0.1); }
+  };
+
+  // ==== Utilitare ====
+  function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
+  function randRange(a, b) { return a + Math.random() * (b - a); }
+
+  class Paddle {
+    constructor() { this.w = PADDLE_W; this.h = PADDLE_H; this.x = (W - this.w)/2; this.y = H - 42; this.vx = 0; this.wideTimer = 0; }
+    update(dt, input) {
+      this.vx = (input.right?1:0) - (input.left?1:0);
+      this.x += this.vx * PADDLE_SPEED * dt; this.x = clamp(this.x, 0, W - this.w);
+      if (this.wideTimer > 0) { this.wideTimer -= dt; this.w = PADDLE_W * 1.5; } else { this.w = PADDLE_W; }
+    }
+    draw(ctx) { ctx.fillStyle = '#48c774'; ctx.fillRect(this.x, this.y, this.w, this.h); }
+    rect() { return {x:this.x,y:this.y,w:this.w,h:this.h}; }
+  }
+
+  class Ball {
+    constructor(x, y, speedMul = 1) {
+      this.x = x; this.y = y; const angle = randRange(Math.PI*0.25, Math.PI*0.75);
+      const speed = INIT_BALL_SPEED * speedMul; this.vx = Math.cos(angle) * speed; this.vy = -Math.abs(Math.sin(angle) * speed);
+      this.r = BALL_RADIUS; this.color = '#f4f1c9'; this.pierceTimer = 0; // când > 0, nu ricoșează din bricks
+    }
+    update(dt) {
+      this.x += this.vx * dt; this.y += this.vy * dt;
+      if (this.x - this.r < 0) { this.x = this.r; this.vx = Math.abs(this.vx); sfx.bounce(); }
+      if (this.x + this.r > W) { this.x = W - this.r; this.vx = -Math.abs(this.vx); sfx.bounce(); }
+      if (this.y - this.r < 0) { this.y = this.r; this.vy = Math.abs(this.vy); sfx.bounce(); }
+    }
+    draw(ctx) { ctx.fillStyle = this.color; ctx.beginPath(); ctx.arc(this.x, this.y, this.r, 0, Math.PI*2); ctx.fill(); }
+  }
+
+  class Brick { constructor(x,y,w,h,hp=1){ this.x=x; this.y=y; this.w=w; this.h=h; this.hp=hp; }
+    draw(ctx){ const c = this.hp>1 ? '#ff7b7b' : '#7aa2ff'; ctx.fillStyle=c; ctx.fillRect(this.x,this.y,this.w,this.h); ctx.strokeStyle='#0c1229'; ctx.strokeRect(this.x+0.5,this.y+0.5,this.w-1,this.h-1); }
+  }
+
+  class PowerUp {
+    constructor(x,y,type){ this.x=x; this.y=y; this.type=type; this.w=14; this.h=14; this.vy=140; this.active=true; }
+    update(dt){ this.y += this.vy*dt; if (this.y > H+24) this.active=false; }
+    draw(ctx){ if(!this.active) return; const colors={multiball:'#4da6ff', wide:'#ffd166', pierce:'#ef476f', split:'#47e5bc'}; ctx.fillStyle=colors[this.type]||'#aaa'; ctx.fillRect(this.x,this.y,this.w,this.h); }
+    rect(){ return {x:this.x,y:this.y,w:this.w,h:this.h}; }
+  }
+
+  function circleRectCollide(cx, cy, r, rx, ry, rw, rh) {
+    const closestX = clamp(cx, rx, rx + rw); const closestY = clamp(cy, ry, ry + rh);
+    const dx = cx - closestX; const dy = cy - closestY; return (dx*dx + dy*dy) <= r*r;
+  }
+
+  const canvas = document.getElementById('game'); const ctx = canvas.getContext('2d');
+  const uiScore = document.getElementById('score'); const uiLives = document.getElementById('lives'); const uiLevel = document.getElementById('level');
+  const btnReset = document.getElementById('reset'); const btnPause = document.getElementById('pause');
+  const input = {left:false,right:false,paused:false};
+
+  let level=1; let paddle, balls, bricks, powerUps, score, lives, running, levelCleared;
+
+  function buildLevel(n=1) {
+    bricks = [];
+    const offsetX = (W - (BRICK_COLS * (BRICK_W + BRICK_GAP) - BRICK_GAP)) / 2;
+    const offsetY = 80;
+    // Așezare: la niveluri mai mari, culoarul se mișcă și brick-urile au hp mai mare
+    const corridorCol = Math.max(1, Math.min(BRICK_COLS-3, 4 + (n-1)*3));
+    for (let r = 0; r < BRICK_ROWS; r++) {
+      for (let c = 0; c < BRICK_COLS; c++) {
+        const inCorridor = (c >= corridorCol && c < corridorCol + CORRIDOR_WIDTH && r < Math.floor(BRICK_ROWS*0.6));
+        if (inCorridor) continue;
+        const x = offsetX + c * (BRICK_W + BRICK_GAP);
+        const y = offsetY + r * (BRICK_H + BRICK_GAP);
+        const hp = r > BRICK_ROWS*0.6 ? (n>=2?2:1) + (n>=3?1:0) : 1; // cameră mai dură pe niveluri superioare
+        bricks.push(new Brick(x,y,BRICK_W,BRICK_H,hp));
+      }
+    }
+  }
+
+  function resetGame() {
+    paddle = new Paddle(); balls = [new Ball(W/2, H - 60, 1)]; powerUps = []; score = 0; lives = 3; levelCleared = false; buildLevel(level); running = true; uiLevel.textContent = level;
+  }
+
+  function spawnPowerUp(x,y){ const types=['multiball','wide','pierce','split']; if(Math.random()<POWERUP_DROP_CHANCE){ const t = types[Math.floor(Math.random()*types.length)]; powerUps.push(new PowerUp(x,y,t)); } }
+
+  function update(dt){ if(!running || input.paused) return;
+    paddle.update(dt,input);
+    for(const pu of powerUps) pu.update(dt); powerUps = powerUps.filter(p=>p.active);
+    // colectare power-up
+    for(const pu of powerUps){ const pr=pu.rect(); const padd=paddle.rect(); const collide = !(pr.x+pr.w<padd.x || pr.x>padd.x+padd.w || pr.y+pr.h<padd.y || pr.y>padd.y+padd.h);
+      if(collide){
+        sfx.power();
+        if(pu.type==='multiball'){
+          const newBalls=[]; for(const b of balls){ if(balls.length+newBalls.length>=MAX_BALLS) break; const nb1=new Ball(b.x,b.y,1); const nb2=new Ball(b.x,b.y,1); nb1.vx=b.vx*0.95; nb1.vy=-Math.abs(b.vy); nb2.vx=-b.vx*0.95; nb2.vy=-Math.abs(b.vy); nb1.color='#cde8ff'; nb2.color='#cde8ff'; newBalls.push(nb1,nb2);} balls.push(...newBalls);
+        } else if(pu.type==='wide'){
+          paddle.wideTimer = Math.max(paddle.wideTimer, 8); // 8s
+        } else if(pu.type==='pierce'){
+          for(const b of balls){ b.pierceTimer = Math.max(b.pierceTimer||0, 5); b.color = '#ffc0cb'; }
+        } else if(pu.type==='split'){
+          const splitBalls=[]; const original = balls.slice(0, Math.min(balls.length, 6)); // nu splităm prea multe
+          for(const b of original){ if(balls.length+splitBalls.length>=MAX_BALLS) break; for(let i=0;i<2;i++){ const nb=new Ball(b.x,b.y,1); const angle = randRange(-0.6,0.6); const speed = Math.hypot(b.vx,b.vy); nb.vx = Math.cos(angle)*speed; nb.vy = -Math.abs(Math.sin(angle)*speed); nb.color='#47e5bc'; splitBalls.push(nb);} }
+          balls.push(...splitBalls);
+        }
+        pu.active=false;
+      }
+    }
+
+    for(const ball of balls){
+      ball.update(dt);
+      // paletă
+      const padd = paddle.rect();
+      if (circleRectCollide(ball.x, ball.y, ball.r, padd.x, padd.y, padd.w, padd.h) && ball.vy > 0) {
+        const hitPos = (ball.x - padd.x) / padd.w - 0.5; const angle = hitPos * Math.PI * 0.7; const speed = Math.hypot(ball.vx, ball.vy);
+        ball.vx = Math.sin(angle) * speed; ball.vy = -Math.abs(Math.cos(angle) * speed); ball.y = padd.y - ball.r - 0.01; sfx.bounce();
+      }
+      // bricks
+      for(let i=bricks.length-1;i>=0;i--){ const br=bricks[i]; if(circleRectCollide(ball.x,ball.y,ball.r,br.x,br.y,br.w,br.h)){
+          if(!(ball.pierceTimer>0)){
+            const dx = (ball.x - (br.x + br.w/2)) / (br.w/2); const dy = (ball.y - (br.y + br.h/2)) / (br.h/2);
+            if (Math.abs(dx) > Math.abs(dy)) ball.vx = -ball.vx; else ball.vy = -ball.vy; sfx.bounce();
+          }
+          br.hp -= 1; score += 10; sfx.brick(); if(br.hp<=0){ bricks.splice(i,1); spawnPowerUp(br.x+br.w/2-7, br.y+br.h/2-7); }
+        }
+      }
+      // pierce timer
+      if(ball.pierceTimer>0){ ball.pierceTimer -= dt; if(ball.pierceTimer<=0){ ball.color='#f4f1c9'; } }
+      // jos
+      if (ball.y - ball.r > H) { const idx = balls.indexOf(ball); if (idx !== -1) balls.splice(idx,1); if (balls.length === 0) { lives -= 1; sfx.lose(); if (lives > 0) { balls.push(new Ball(W/2, H - 80, 1)); } else { running=false; } } }
+    }
+
+    if(bricks.length===0){ levelCleared=true; running=false; sfx.win(); }
+    uiScore.textContent=score; uiLives.textContent=lives;
+  }
+
+  function draw(){ ctx.fillStyle='#0e1734'; ctx.fillRect(0,0,W,H); const grad = ctx.createLinearGradient(0,0,W,H); grad.addColorStop(0,'rgba(34,102,255,0.06)'); grad.addColorStop(1,'rgba(255,255,255,0.02)'); ctx.fillStyle=grad; ctx.fillRect(0,0,W,H);
+    for(const br of bricks) br.draw(ctx); for(const pu of powerUps) pu.draw(ctx); paddle.draw(ctx); for(const ball of balls) ball.draw(ctx);
+    if(!running){ ctx.fillStyle='#eaeaf0'; ctx.textAlign='center'; ctx.font='24px system-ui'; if(levelCleared){ ctx.fillText('Nivel complet!', W/2, H/2 - 12);} else if(lives<=0){ ctx.fillText('Game Over', W/2, H/2 - 12);} else if(input.paused){ ctx.fillText('Pauză', W/2, H/2 - 12);} ctx.font='14px system-ui'; ctx.fillText('Apasă R pentru Reset', W/2, H/2 + 18); }
+  }
+
+  let last=performance.now(); function loop(now){ const dt=Math.min(0.033,(now-last)/1000); last=now; update(dt); draw(); requestAnimationFrame(loop); }
+
+  window.addEventListener('keydown',(e)=>{ const k=e.key.toLowerCase(); if(k==='arrowleft'||k==='a') input.left=true; if(k==='arrowright'||k==='d') input.right=true; if(k==='p') input.paused=!input.paused; if(k==='r'){ levelCleared=false; resetGame(); } });
+  window.addEventListener('keyup',(e)=>{ const k=e.key.toLowerCase(); if(k==='arrowleft'||k==='a') input.left=false; if(k==='arrowright'||k==='d') input.right=false; });
+  btnReset.addEventListener('click', ()=>{ levelCleared=false; resetGame(); }); btnPause.addEventListener('click', ()=>{ input.paused=!input.paused; });
+
+  // Start
+  resetGame(); requestAnimationFrame(loop);
+  </script>
+</body>
+</html>
