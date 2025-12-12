@@ -1,9 +1,13 @@
-const CACHE_NAME = 'brick-breaker-cache-v1';
+const CACHE_NAME = 'brick-breaker-cache-v3';
 const ASSETS = [
-  '/',
-  '/index.html',
-  '/manifest.json'
-  // adaugă și icons când le ai: '/icon-192.png', '/icon-512.png'
+  './',
+  './index.html',
+  './manifest.json',
+  './icon-192.png',
+  './icon-512.png',
+  './levels.js',
+  './game.js',
+  './pwa.js'
 ];
 self.addEventListener('install', (event) => {
   event.waitUntil(caches.open(CACHE_NAME).then(cache => cache.addAll(ASSETS)));
@@ -17,6 +21,6 @@ self.addEventListener('fetch', (event) => {
       const copy = fetchResp.clone();
       caches.open(CACHE_NAME).then(cache => cache.put(event.request, copy));
       return fetchResp;
-    }).catch(() => caches.match('/index.html')))
+    }).catch(() => caches.match('./index.html')))
   );
 });
