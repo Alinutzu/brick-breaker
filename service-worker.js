@@ -1,11 +1,6 @@
-
-// service-worker.js (robust pentru GitHub Pages project sites)
-const SW_SCOPE = self.location.pathname.replace(/\/service-worker\.js$/, ''); 
-// Exemplu: /NumeleRepo -> folosit ca prefix
-
+// Service Worker auto-scope pentru GitHub Pages (project sites)
+const SW_SCOPE = self.location.pathname.replace(/\/service-worker\.js$/, '');
 const CACHE_NAME = 'brick-breaker-cache-v4';
-
-// Listează toate asset-urile cu prefixul SW_SCOPE
 const ASSETS = [
   `${SW_SCOPE}/`,
   `${SW_SCOPE}/index.html`,
@@ -16,34 +11,22 @@ const ASSETS = [
   `${SW_SCOPE}/game.js`,
   `${SW_SCOPE}/pwa.js`
 ];
-
 self.addEventListener('install', (event) => {
   event.waitUntil(caches.open(CACHE_NAME).then(cache => cache.addAll(ASSETS)));
 });
-
 self.addEventListener('activate', (event) => {
   event.waitUntil(
-    caches.keys().then(keys =>
-      Promise.all(keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k)))
-    )
+    caches.keys().then(keys => Promise.all(keys.filter(k=>k!==CACHE_NAME).map(k=>caches.delete(k))))
   );
 });
-
-// Network-first pentru fișierele listate; fallback la index.html pentru navigații
 self.addEventListener('fetch', (event) => {
   const req = event.request;
   event.respondWith(
     caches.match(req).then(cached => {
-      // Pentru navigații (HTML pages), dă fallback la index.html pe 404/offline
-      const isNavRequest =
-        req.mode === 'navigate' ||
-        (req.headers.get('accept') || '').includes('text/html');
-
+      const isNavRequest = req.mode === 'navigate' || (req.headers.get('accept')||'').includes('text/html');
       if (cached) return cached;
-
       return fetch(req)
         .then(resp => {
-          // Cache ON-THE-FLY
           const copy = resp.clone();
           caches.open(CACHE_NAME).then(cache => cache.put(req, copy));
           return resp;
@@ -54,5 +37,6 @@ self.addEventListener('fetch', (event) => {
           }
           return caches.match(req);
         });
-       })
+    })
   );
+});
