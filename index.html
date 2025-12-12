@@ -3,22 +3,19 @@
 <html lang="ro">
 <head>
   <meta charset="UTF-8" />
-  <!-- Mobil: fără zoom accidental, fără pinch -->
+  <!-- Mobil: fără zoom accidental -->
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
   <title>Brick Breaker PWA</title>
-  manifest.json
+  <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#0f1226" />
   <style>
     html, body { height: 100%; margin: 0; background: #0f1226; color: #eaeaf0;
       font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, sans-serif; }
-    /* Previne scroll-ul în timpul jocului */
-    body { overflow: hidden; }
+    body { overflow: hidden; } /* fără scroll în gameplay */
 
-    /* Layout fix pe viewport (fără scroll) */
     #wrap { position: fixed; inset: 0; display: flex; flex-direction: column;
       align-items: center; justify-content: flex-start; gap: 8px; padding: 8px; }
 
-    /* Canvas responsiv; JS va ajusta exact dimensiunile */
     canvas { display: block; width: 100vw; height: calc(100vh - 140px);
       background: #11162e; border: 1px solid #2a2f55; box-shadow: 0 0 24px rgba(34,102,255,0.25);
       touch-action: none; }
@@ -28,7 +25,6 @@
     .legend { font-size: 12px; opacity: 0.85; text-align: center; padding: 0 8px; }
     .tag { padding: 2px 8px; border-radius: 999px; background: #1b2a5e; font-size: 12px; }
 
-    /* Modal meniu */
     #menu { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center;
       background: rgba(0,0,0,0.55); backdrop-filter: blur(3px); z-index: 9999; }
     .panel { background: #0f1430; border: 1px solid #2a2f55; box-shadow: 0 12px 40px rgba(34,102,255,0.25);
@@ -37,18 +33,15 @@
     .levelbtn { padding: 10px; text-align: center; border: 1px solid #2a2f55; border-radius: 8px; background: #12183a; cursor: pointer; }
     .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 
-    /* Ascundere robustă */
     [hidden] { display: none !important; }
     .hidden { display: none !important; pointer-events: none; }
 
-    /* HUD timere Wide/Pierce */
     #timers { display: flex; gap: 8px; align-items: center; justify-content: center; flex-wrap: wrap; }
     .timer { display: flex; align-items: center; gap: 6px; }
     .bar { width: 120px; height: 8px; border-radius: 999px; background: #1b2a5e; overflow: hidden; }
     .fill { height: 100%; background: linear-gradient(90deg, #ffd166, #ffffff); }
     .fill-pierce { background: linear-gradient(90deg, #ef476f, #ffffff); }
 
-    /* Overlay touch pentru Tap L/R (invizibil, activ) */
     #touchControls { position: fixed; inset: 0; display: none; }
     .zone { position: absolute; top: 0; bottom: 0; width: 50vw; opacity: 0; }
     .zone.left { left: 0; }
@@ -102,15 +95,14 @@
     </div>
   </div>
 
-  <!-- Touch controls (Tap L/R) -->
+  <!-- Touch controls -->
   <div id="touchControls">
     <div class="zone left"></div>
     <div class="zone right"></div>
   </div>
 
-  <!-- Scripts în ordine -->
-  ./levels.js</script>
-  ./game.js</script>
-  ./pwa.js</script>
+  <script src="./levels.js"></script>
+  <script src="./game_mobile_fix.js"></script>
+  <script src="./pwa.js"></script>
 </body>
-</
+</html>
