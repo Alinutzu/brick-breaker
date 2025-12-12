@@ -1,17 +1,14 @@
 
 // game.js — gameplay, randare, input (mobil & desktop), timere, particule, meniu, sound ON/OFF
 (function(){
-  // Spațiu logic constant (800x600); randăm scalat în canvas
   const LOGICAL_W=800, LOGICAL_H=600;
-  let renderW=LOGICAL_W, renderH=LOGICAL_H; // dimensiuni reale ale canvasului (pixeli)
+  let renderW=LOGICAL_W, renderH=LOGICAL_H;
 
-  // Constante joc
   const PADDLE_W=110,PADDLE_H=12,PADDLE_SPEED=540;
   const BALL_RADIUS=7; let INIT_BALL_SPEED=320;
   const BRICK_ROWS=10,BRICK_COLS=16,BRICK_W=42,BRICK_H=16,BRICK_GAP=2;
   let POWERUP_DROP_CHANCE=0.28; const MAX_BALLS=40;
 
-  // Stare joc
   const state = {
     mode:'level', level:1, wave:1,
     paddle:null, balls:[], bricks:[], powerUps:[],
@@ -21,7 +18,6 @@
     BRICK_W, BRICK_H, BRICK_GAP
   };
 
-  // Audio
   const AudioCtx = window.AudioContext||window.webkitAudioContext; const audioCtx = new AudioCtx();
   let audioEnabled = true; const soundBtn = document.getElementById('soundBtn');
   soundBtn.addEventListener('click', async ()=>{
@@ -31,16 +27,13 @@
   });
   function beep(freq=440,duration=0.06,type='sine',vol=0.08){
     if(!audioEnabled) return;
-    try{
-      const o=audioCtx.createOscillator(); const g=audioCtx.createGain();
+    try{ const o=audioCtx.createOscillator(); const g=audioCtx.createGain();
       o.type=type; o.frequency.value=freq; g.gain.value=vol; o.connect(g); g.connect(audioCtx.destination);
-      o.start(); setTimeout(()=>o.stop(),duration*1000);
-    }catch(e){}
+      o.start(); setTimeout(()=>o.stop(),duration*1000); }catch(e){}
   }
   const sfx={ bounce(){beep(420,0.03,'square',0.07);}, brick(){beep(620,0.05,'triangle',0.08);},
     power(){beep(880,0.08,'sine',0.09);}, lose(){beep(220,0.25,'sawtooth',0.08);}, win(){beep(980,0.20,'sine',0.1);} };
 
-  // Utilitare
   function clamp(v,a,b){ return Math.max(a,Math.min(b,v)); }
   function randRange(a,b){ return a + Math.random()*(b-a); }
   function circleRectCollide(cx,cy,r,rx,ry,rw,rh){
@@ -48,7 +41,6 @@
     const dx=cx-closestX; const dy=cy-closestY; return (dx*dx+dy*dy)<=r*r;
   }
 
-  // Particule
   const particles=[];
   function spawnParticles(x,y,color,count=8){
     for(let i=0;i<count;i++){
@@ -64,7 +56,6 @@
   }
   function drawParticles(ctx){ for(const p of particles){ ctx.globalAlpha=p.alpha; ctx.fillStyle=p.color; ctx.fillRect(p.x-2,p.y-2,4,4); } ctx.globalAlpha=1; }
 
-  // Clase
   class Paddle{
     constructor(){ this.w=PADDLE_W; this.h=PADDLE_H; this.x=(LOGICAL_W-this.w)/2; this.y=LOGICAL_H-42;
       this.vx=0; this.wideTimer=0; this.wideMax=0; }
@@ -107,14 +98,12 @@
     rect(){ return {x:this.x,y:this.y,w:this.w,h:this.h}; }
   }
 
-  // DOM
   const canvas=document.getElementById('game'); const ctx=canvas.getContext('2d');
   const uiScore=document.getElementById('score'); const uiLives=document.getElementById('lives'); const uiStage=document.getElementById('stage'); const uiModeTag=document.getElementById('modeTag');
   const btnReset=document.getElementById('reset'); const btnPause=document.getElementById('pause'); const btnMenu=document.getElementById('menuBtn');
   const menu=document.getElementById('menu'); const grid=document.getElementById('levelGrid'); const btnChooseLevel=document.getElementById('chooseLevelMode'); const btnChooseEndless=document.getElementById('chooseEndless'); const btnCloseMenu=document.getElementById('closeMenu');
   const wideBox=document.getElementById('wideTimerBox'); const wideFill=document.getElementById('wideFill'); const pierceBox=document.getElementById('pierceTimerBox'); const pierceFill=document.getElementById('pierceFill');
 
-  // Meniu
   function showMenu(){ menu.hidden=false; menu.classList.remove('hidden'); input.paused=true; }
   function hideMenu(){ menu.hidden=true; menu.classList.add('hidden'); input.paused=false; }
   for(let i=1;i<=12;i++){
@@ -128,7 +117,6 @@
   btnChooseEndless.addEventListener('click',()=>{ setMode('endless'); resetGame(); hideMenu(); });
   window.addEventListener('keydown',(e)=>{ if(e.key==='Escape' && !menu.hidden) hideMenu(); });
 
-  // Input
   const input={left:false,right:false,paused:false};
   window.addEventListener('keydown',(e)=>{
     const k=e.key.toLowerCase();
@@ -155,9 +143,7 @@
   });
   btnPause.addEventListener('click',()=>{ input.paused=!input.paused; });
 
-  // Touch (Drag paletă + Tap L/R)
-  const touchUI = document.getElementById('touchControls');
-  const useDrag = true; // default mobil
+  const touchUI = document.getElementById('touchControls'); const useDrag = true;
   function isTouch(){ return ('ontouchstart' in window) || navigator.maxTouchPoints>0; }
   if(isTouch()){ touchUI.style.display='block'; }
   ['touchstart','touchmove','touchend'].forEach(ev=>{
@@ -184,10 +170,8 @@
     state.paddle.x = clamp(x - state.paddle.w/2, 0, LOGICAL_W - state.paddle.w);
   }, {passive:false});
 
-  // Mode
   function setMode(m){ state.mode=m; uiModeTag.textContent = (m==='endless')? 'Endless' : 'Nivel'; }
 
-  // Construcție nivel
   function buildLevel(){
     const comp = Levels.compute(state.mode, state.level, state.wave);
     const bp = comp.bricksBlueprint;
@@ -210,7 +194,6 @@
     }
   }
 
-  // Power-ups
   function spawnPowerUp(x,y){
     const types=['multiball','wide','pierce','split'];
     if(Math.random()<POWERUP_DROP_CHANCE){
@@ -219,7 +202,6 @@
     }
   }
 
-  // Stalemate -> success automat
   function checkStalemateSuccess(){
     if(state.bricks.length===0) return false;
     const hasPlain = state.bricks.some(br => !br.indestructible && !br.requiresPierce);
@@ -228,7 +210,6 @@
     return !pierceActive;
   }
 
-  // Timere HUD
   function updateTimersHUD(){
     if(state.paddle.wideTimer>0){
       wideBox.hidden=false;
@@ -245,7 +226,6 @@
     } else { pierceBox.hidden=true; }
   }
 
-  // Update principal
   function update(dt){
     if(!state.running || input.paused) return;
 
@@ -254,7 +234,6 @@
     for(const pu of state.powerUps) pu.update(dt);
     state.powerUps = state.powerUps.filter(p=>p.active);
 
-    // colectare power-up
     for(const pu of state.powerUps){
       const pr=pu.rect(); const padd=state.paddle.rect();
       const collide=!(pr.x+pr.w<padd.x||pr.x>padd.x+padd.w||pr.y+pr.h<padd.y||pr.y>padd.y+padd.h);
@@ -291,7 +270,6 @@
       }
     }
 
-    // bile + coliziuni
     for(const ball of state.balls){
       ball.update(dt);
 
@@ -337,10 +315,8 @@
         }
       }
 
-      // expirare Pierce
       if(ball.pierceTimer>0){ ball.pierceTimer-=dt; if(ball.pierceTimer<=0){ ball.color='#f4f1c9'; } }
 
-      // viață pierdută
       if(ball.y-ball.r>LOGICAL_H){
         const idx=state.balls.indexOf(ball); if(idx!==-1) state.balls.splice(idx,1);
         if(state.balls.length===0){
@@ -353,7 +329,6 @@
       }
     }
 
-    // condiții win
     if(state.bricks.length===0){ sfx.win(); nextStage(); }
     else if(checkStalemateSuccess()){ sfx.win(); nextStage(); }
 
@@ -361,22 +336,17 @@
     updateParticles(dt);
   }
 
-  // Randare
   function draw(){
     fitCanvas();
-
-    // scale pentru spațiul logic
     const scaleX = renderW / LOGICAL_W;
     const scaleY = renderH / LOGICAL_H;
 
-    // Clear în pixeli reali
     ctx.setTransform(1,0,0,1,0,0);
     ctx.fillStyle='#0e1734'; ctx.fillRect(0,0,renderW,renderH);
     const grad=ctx.createLinearGradient(0,0,renderW,renderH);
     grad.addColorStop(0,'rgba(34,102,255,0.06)'); grad.addColorStop(1,'rgba(255,255,255,0.02)');
     ctx.fillStyle=grad; ctx.fillRect(0,0,renderW,renderH);
 
-    // Desen în spațiul logic (scalat)
     ctx.setTransform(scaleX, 0, 0, scaleY, 0, 0);
     for(const br of state.bricks) br.draw(ctx);
     for(const pu of state.powerUps) pu.draw(ctx);
@@ -384,7 +354,6 @@
     for(const ball of state.balls) ball.draw(ctx);
     drawParticles(ctx);
 
-    // Overlay text (pixel space)
     ctx.setTransform(1,0,0,1,0,0);
     if(!state.running){
       ctx.fillStyle='#eaeaf0'; ctx.textAlign='center'; ctx.font='24px system-ui';
@@ -394,27 +363,21 @@
     }
   }
 
-  // Ajustare canvas (fără scroll, păstrăm aspect 4:3, spațiu ~140px pentru HUD)
   function fitCanvas(){
     const vw = Math.max(320, Math.floor(window.innerWidth));
     const vh = Math.max(240, Math.floor(window.innerHeight));
     let targetW = vw, targetH = Math.floor(vw * (LOGICAL_H/LOGICAL_W));
     if (targetH > vh - 140) { targetH = vh - 140; targetW = Math.floor(targetH * (LOGICAL_W/LOGICAL_H)); }
-    // CSS size (evită scroll)
     canvas.style.width = targetW + 'px';
     canvas.style.height = targetH + 'px';
-    // buffer real egal cu CSS size (evită DPR mismatch minuscul)
-    if (canvas.width !== targetW || canvas.height !== targetH) {
-      canvas.width = targetW; canvas.height = targetH;
-    }
+    if (canvas.width !== targetW || canvas.height !== targetH) { canvas.width = targetW; canvas.height = targetH; }
     renderW = canvas.width; renderH = canvas.height;
   }
   window.addEventListener('resize', fitCanvas);
 
-  // Start
-  function setMode(m){ state.mode=m; uiModeTag.textContent = (m==='endless')? 'Endless' : 'Nivel'; }
+  function setMode(m){ state.mode=m; uiModeTag.textContent = (m==='endless')? '  function setMode(m){ state.mode=m; uiModeTag.textContent = (m==='endless')? 'Endless' : 'Nivel'; }
   setMode('level'); resetGame();
 
   let last=performance.now();
   function loop(now){ const dt=Math.min(0.033,(now-last)/1000); last=now; update(dt); draw(); requestAnimationFrame(loop); }
-   requestAnimationFrame(loop);
+  requestAnimationFrame(loop);
