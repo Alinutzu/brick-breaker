@@ -1,8 +1,7 @@
-// game_mobile_fix.js — fullscreen responsive canvas + touch controls
+// game_mobile_fix.js — fullscreen responsive canvas + touch controls (patched rendering scale)
 (function(){
-  // Base logical size (we keep logic in 800x600 space, render scaled)
   const LOGICAL_W=800, LOGICAL_H=600;
-  let W=LOGICAL_W, H=LOGICAL_H; // rendering size after DPR scaling
+  let renderW=LOGICAL_W, renderH=LOGICAL_H; // actual canvas width/height in pixels
 
   const PADDLE_W=110,PADDLE_H=12,PADDLE_SPEED=540;
   const BALL_RADIUS=7; let INIT_BALL_SPEED=320;
@@ -47,38 +46,29 @@
     rect(){ return {x:this.x,y:this.y,w:this.w,h:this.h}; }
   }
 
-  // DOM
   const canvas=document.getElementById('game'); const ctx=canvas.getContext('2d');
   const uiScore=document.getElementById('score'); const uiLives=document.getElementById('lives'); const uiStage=document.getElementById('stage'); const uiModeTag=document.getElementById('modeTag');
   const btnReset=document.getElementById('reset'); const btnPause=document.getElementById('pause'); const btnMenu=document.getElementById('menuBtn');
   const menu=document.getElementById('menu'); const grid=document.getElementById('levelGrid'); const btnChooseLevel=document.getElementById('chooseLevelMode'); const btnChooseEndless=document.getElementById('chooseEndless'); const btnCloseMenu=document.getElementById('closeMenu');
   const wideBox=document.getElementById('wideTimerBox'); const wideFill=document.getElementById('wideFill'); const pierceBox=document.getElementById('pierceTimerBox'); const pierceFill=document.getElementById('pierceFill');
 
-  // Menu helpers
   function showMenu(){ menu.hidden=false; menu.classList.remove('hidden'); input.paused=true; }
   function hideMenu(){ menu.hidden=true; menu.classList.add('hidden'); input.paused=false; }
   for(let i=1;i<=12;i++){ const b=document.createElement('button'); b.className='levelbtn'; b.textContent='Nivel '+i + (i===12?' ★':''); b.addEventListener('click',()=>{ setMode('level'); state.level=i; resetGame(); hideMenu(); }); grid.appendChild(b); }
   btnMenu.addEventListener('click',()=>{ showMenu(); }); btnCloseMenu.addEventListener('click',()=>{ hideMenu(); }); btnChooseLevel.addEventListener('click',()=>{ setMode('level'); resetGame(); hideMenu(); }); btnChooseEndless.addEventListener('click',()=>{ setMode('endless'); resetGame(); hideMenu(); });
   window.addEventListener('keydown',(e)=>{ if(e.key==='Escape' && !menu.hidden) hideMenu(); });
 
-  // Input
   const input={left:false,right:false,paused:false};
   window.addEventListener('keydown',(e)=>{ const k=e.key.toLowerCase(); if(k==='arrowleft'||k==='a') input.left=true; if(k==='arrowright'||k==='d') input.right=true; if(k==='p') input.paused=!input.paused; if(k==='r'){ state.stageCleared=false; if(state.mode==='level'){ buildLevel(); } else { state.wave=1; buildLevel(); } state.lives=3; state.balls=[new Ball(LOGICAL_W/2,LOGICAL_H-80,1)]; state.running=true; uiLives.textContent=state.lives; } });
   window.addEventListener('keyup',(e)=>{ const k=e.key.toLowerCase(); if(k==='arrowleft'||k==='a') input.left=false; if(k==='arrowright'||k==='d') input.right=false; });
   btnReset.addEventListener('click',()=>{ state.stageCleared=false; if(state.mode==='level'){ buildLevel(); } else { state.wave=1; buildLevel(); } state.lives=3; state.balls=[new Ball(LOGICAL_W/2,LOGICAL_H-80,1)]; state.running=true; uiLives.textContent=state.lives; }); btnPause.addEventListener('click',()=>{ input.paused=!input.paused; });
 
-  // Touch controls (Tap L/R + Drag paddle)
+  // Touch controls
   const touchUI = document.getElementById('touchControls');
-  const useDrag = true; // default: drag paddle on mobile
+  const useDrag = true;
   function isTouch(){ return ('ontouchstart' in window) || navigator.maxTouchPoints>0; }
   if(isTouch()){ touchUI.style.display='block'; }
-
-  // Prevent scrolling on touch
-  ['touchstart','touchmove','touchend'].forEach(ev=>{
-    document.body.addEventListener(ev, (e)=>{ if(!menu.hidden) return; e.preventDefault(); }, { passive:false });
-  });
-
-  // Tap L/R zones
+  ['touchstart','touchmove','touchend'].forEach(ev=>{ document.body.addEventListener(ev,(e)=>{ if(!menu.hidden) return; e.preventDefault(); },{passive:false}); });
   const zoneLeft = document.querySelector('#touchControls .zone.left');
   const zoneRight = document.querySelector('#touchControls .zone.right');
   function zoneTouchStart(side){ if(side==='left') input.left=true; else input.right=true; }
@@ -87,28 +77,17 @@
   zoneLeft.addEventListener('touchend', zoneTouchEnd, {passive:false});
   zoneRight.addEventListener('touchstart', ()=>zoneTouchStart('right'), {passive:false});
   zoneRight.addEventListener('touchend', zoneTouchEnd, {passive:false});
+  canvas.addEventListener('touchstart', (e)=>{ if(!useDrag) return; const t=e.changedTouches[0]; const rect=canvas.getBoundingClientRect(); const x=(t.clientX-rect.left)/rect.width*LOGICAL_W; state.paddle.x = clamp(x - state.paddle.w/2, 0, LOGICAL_W - state.paddle.w); }, {passive:false});
+  canvas.addEventListener('touchmove', (e)=>{ if(!useDrag) return; const t=e.changedTouches[0]; const rect=canvas.getBoundingClientRect(); const x=(t.clientX-rect.left)/rect.width*LOGICAL_W; state.paddle.x = clamp(x - state.paddle.w/2, 0, LOGICAL_W - state.paddle.w); }, {passive:false});
 
-  // Drag paddle
-  canvas.addEventListener('touchstart', (e)=>{
-    if(!useDrag) return; const t=e.changedTouches[0]; const rect=canvas.getBoundingClientRect(); const x=(t.clientX-rect.left)/rect.width*LOGICAL_W; state.paddle.x = clamp(x - state.paddle.w/2, 0, LOGICAL_W - state.paddle.w);
-  }, {passive:false});
-  canvas.addEventListener('touchmove', (e)=>{
-    if(!useDrag) return; const t=e.changedTouches[0]; const rect=canvas.getBoundingClientRect(); const x=(t.clientX-rect.left)/rect.width*LOGICAL_W; state.paddle.x = clamp(x - state.paddle.w/2, 0, LOGICAL_W - state.paddle.w);
-  }, {passive:false});
-
-  // Mode
   function setMode(m){ state.mode=m; uiModeTag.textContent = (m==='endless')? 'Endless' : 'Nivel'; }
 
-  // Levels
   function buildLevel(){ const comp = Levels.compute(state.mode, state.level, state.wave); const bp = comp.bricksBlueprint; state.bricks = bp.map(b=> new Brick(b.x,b.y,b.w,b.h,b.hp,b.requiresPierce,b.indestructible,b.opensCorridor)); state.barrierRows = comp.barrierRows; state.offsetX = comp.offsetX; state.corridor2Col = comp.corridor2Col; state.corridor2Opened=false; INIT_BALL_SPEED = comp.params.initSpeed; POWERUP_DROP_CHANCE = comp.params.dropChance; }
 
   function resetGame(){ state.paddle=new Paddle(); state.balls=[new Ball(LOGICAL_W/2, LOGICAL_H-60, 1)]; state.powerUps=[]; state.score=0; state.lives=3; state.stageCleared=false; state.wave=1; buildLevel(); state.running=true; uiStage.textContent=(state.mode==='endless')?state.wave:state.level; uiScore.textContent=state.score; uiLives.textContent=state.lives; }
   function nextStage(){ if(state.mode==='level'){ state.stageCleared=true; state.running=false; } else { state.wave+=1; buildLevel(); state.balls=[new Ball(LOGICAL_W/2, LOGICAL_H-60, 1)]; state.stageCleared=false; state.running=true; uiStage.textContent=state.wave; } }
-
   function spawnPowerUp(x,y){ const types=['multiball','wide','pierce','split']; if(Math.random()<POWERUP_DROP_CHANCE){ const t=types[Math.floor(Math.random()*types.length)]; state.powerUps.push(new PowerUp(x,y,t)); } }
-
   function checkStalemateSuccess(){ if(state.bricks.length===0) return false; const hasPlain = state.bricks.some(br => !br.indestructible && !br.requiresPierce); if(hasPlain) return false; const pierceActive = state.balls.some(b=>b.pierceTimer>0); return !pierceActive; }
-
   function updateTimersHUD(){ if(state.paddle.wideTimer>0){ wideBox.hidden=false; const pct = clamp(state.paddle.wideTimer / Math.max(0.0001, state.paddle.wideMax||8), 0, 1) * 100; wideFill.style.width = pct.toFixed(1)+'%'; } else { wideBox.hidden=true; } let maxPierce=0,maxPierceMax=0; for(const b of state.balls){ if(b.pierceTimer>maxPierce){ maxPierce=b.pierceTimer; maxPierceMax=Math.max(maxPierceMax, b.pierceMax||maxPierce); } } if(maxPierce>0){ pierceBox.hidden=false; const pct = clamp(maxPierce / Math.max(0.0001, maxPierceMax||5), 0, 1) * 100; pierceFill.style.width = pct.toFixed(1)+'%'; } else { pierceBox.hidden=true; } }
 
   function update(dt){ if(!state.running || input.paused) return; state.paddle.update(dt,input);
@@ -138,41 +117,41 @@
   }
 
   function draw(){
-    // Fit canvas to screen with DPR scaling, maintain aspect (4:3)
     fitCanvas();
-    ctx.save();
-    // Clear
-    ctx.fillStyle='#0e1734'; ctx.fillRect(0,0,W,H);
-    const grad=ctx.createLinearGradient(0,0,W,H); grad.addColorStop(0,'rgba(34,102,255,0.06)'); grad.addColorStop(1,'rgba(255,255,255,0.02)'); ctx.fillStyle=grad; ctx.fillRect(0,0,W,H);
-    // Draw in logical space via scale
-    const scaleX = W/LOGICAL_W, scaleY = H/LOGICAL_H; ctx.scale(scaleX, scaleY);
+    // compute scale using actual canvas dimensions
+    const scaleX = renderW / LOGICAL_W;
+    const scaleY = renderH / LOGICAL_H;
+
+    // Clear using canvas pixel space
+    ctx.setTransform(1,0,0,1,0,0);
+    ctx.fillStyle='#0e1734'; ctx.fillRect(0,0,renderW,renderH);
+    const grad=ctx.createLinearGradient(0,0,renderW,renderH); grad.addColorStop(0,'rgba(34,102,255,0.06)'); grad.addColorStop(1,'rgba(255,255,255,0.02)'); ctx.fillStyle=grad; ctx.fillRect(0,0,renderW,renderH);
+
+    // Draw in logical space scaled to fill canvas
+    ctx.setTransform(scaleX, 0, 0, scaleY, 0, 0);
     for(const br of state.bricks) br.draw(ctx); for(const pu of state.powerUps) pu.draw(ctx); state.paddle.draw(ctx); for(const ball of state.balls) ball.draw(ctx);
     drawParticles(ctx);
-    ctx.restore();
 
-    if(!state.running){ ctx.fillStyle='#eaeaf0'; ctx.textAlign='center'; ctx.font='24px system-ui'; ctx.fillText(state.lives<=0?'Game Over':(state.stageCleared && state.mode==='level'?'Nivel complet!':(input.paused?'Pauză':'')), W/2, H/2 - 12); ctx.font='14px system-ui'; ctx.fillText('Apasă R pentru Reset sau deschide Meniul', W/2, H/2 + 18); }
+    // UI overlays in pixel space
+    ctx.setTransform(1,0,0,1,0,0);
+    if(!state.running){ ctx.fillStyle='#eaeaf0'; ctx.textAlign='center'; ctx.font='24px system-ui'; ctx.fillText(state.lives<=0?'Game Over':(state.stageCleared && state.mode==='level'?'Nivel complet!':(input.paused?'Pauză':'')), renderW/2, renderH/2 - 12); ctx.font='14px system-ui'; ctx.fillText('Apasă R pentru Reset sau deschide Meniul', renderW/2, renderH/2 + 18); }
   }
 
-  // Canvas fitting
   function fitCanvas(){
-    const dpr = Math.max(1, Math.min(3, window.devicePixelRatio||1));
-    // maintain aspect 4:3 inside viewport
-    const vw = Math.max(320, window.innerWidth);
-    const vh = Math.max(240, window.innerHeight);
+    // maintain aspect 4:3 inside viewport, leave ~140px for HUD
+    const vw = Math.max(320, Math.floor(window.innerWidth));
+    const vh = Math.max(240, Math.floor(window.innerHeight));
     let targetW = vw, targetH = Math.floor(vw * (LOGICAL_H/LOGICAL_W));
-    if (targetH > vh - 140) { // leave space for HUD
-      targetH = vh - 140; targetW = Math.floor(targetH * (LOGICAL_W/LOGICAL_H));
-    }
+    if (targetH > vh - 140) { targetH = vh - 140; targetW = Math.floor(targetH * (LOGICAL_W/LOGICAL_H)); }
+    // set CSS size to avoid scroll
     canvas.style.width = targetW + 'px';
     canvas.style.height = targetH + 'px';
-    const pxW = Math.floor(targetW * dpr), pxH = Math.floor(targetH * dpr);
-    if (canvas.width !== pxW || canvas.height !== pxH) { canvas.width = pxW; canvas.height = pxH; }
-    W = targetW; H = targetH; // drawing size in CSS pixels
-    ctx.setTransform(1,0,0,1,0,0);
+    // set actual canvas buffer size in same units (avoid DPR mismatch)
+    if (canvas.width !== targetW || canvas.height !== targetH) { canvas.width = targetW; canvas.height = targetH; }
+    renderW = canvas.width; renderH = canvas.height;
   }
   window.addEventListener('resize', fitCanvas);
 
-  // Start
   function setMode(m){ state.mode=m; uiModeTag.textContent = (m==='endless')? 'Endless' : 'Nivel'; }
   setMode('level'); resetGame();
 
