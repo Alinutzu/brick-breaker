@@ -1,6 +1,7 @@
+// levels.js — parametri & blueprint niveluri (fix sintaxă)
+'use strict';
 
-// levels.js — parametri & generare blueprint niveluri
-window.Levels = (function(){
+(function(){
   const BRICK_ROWS = 10, BRICK_COLS = 16, BRICK_W = 42, BRICK_H = 16, BRICK_GAP = 2;
   const CORRIDOR_BASE_WIDTH = 2;
 
@@ -23,10 +24,8 @@ window.Levels = (function(){
   }
 
   function compute(mode, level, wave){
-    const BRICK_W = 42, BRICK_H = 16, BRICK_GAP = 2;
-    const BRICK_COLS = 16, BRICK_ROWS = 10;
     const barrierRows = Math.floor(BRICK_ROWS*0.6);
-    const offsetX = (800 - (BRICK_COLS * (BRICK_W + BRICK_GAP) - BRICK_GAP)) / 2;
+    const offsetX = (800 - (BRICK_COLS * (BRICK_W + BRICK_GAP) - BRICK_GAP)) / 2; // W logic = 800
 
     let p, hpBoost, signature=false;
     if(mode==='level'){ p = paramsForStage(level); hpBoost = Math.floor(level/3); signature = (level===12); }
@@ -47,14 +46,8 @@ window.Levels = (function(){
         const y = 80 + r * (BRICK_H + BRICK_GAP);
         let hp = (r>barrierRows ? 2 + hpBoost : 1);
         let requiresPierce = false, indestructible = false, opensCorridor=false;
-
-        if(specialRow && r===0){
-          if(c%2===0){ indestructible=true; } else { requiresPierce=true; hp = 2 + hpBoost; }
-        }
-        if(signature && r===barrierRows && c===Math.min(BRICK_COLS-2, corridorCol+3)) {
-          opensCorridor=true; hp=2 + hpBoost;
-        }
-
+        if(specialRow && r===0){ if(c%2===0){ indestructible=true; } else { requiresPierce=true; hp = 2 + hpBoost; } }
+        if(signature && r===barrierRows && c===Math.min(BRICK_COLS-2, corridorCol+3)) { opensCorridor=true; hp=2 + hpBoost; }
         bricksBlueprint.push({x,y,w:BRICK_W,h:BRICK_H,hp,requiresPierce,indestructible,opensCorridor});
       }
     }
@@ -68,10 +61,11 @@ window.Levels = (function(){
       const br = state.bricks[i];
       const c = Math.round((br.x - state.offsetX) / (state.BRICK_W + state.BRICK_GAP));
       const r = Math.round((br.y - 80) / (state.BRICK_H + state.BRICK_GAP));
-      if(r < state.barrierRows && c === state.corridor2Col){
-        state.bricks.splice(i,1);
-      }
-       }
+      if(r < state.barrierRows && c === state.corridor2Col){ state.bricks.splice(i,1); }
+    }
   }
 
-  return { compute, openSecondCorridor, paramsForStage, paramsForEndless };
+  // Export
+  window.Levels = { compute, openSecondCorridor, paramsForStage, paramsForEndless };
+  console.log('[levels.js] loaded');
+})();
