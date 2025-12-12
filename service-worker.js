@@ -1,26 +1,58 @@
-const CACHE_NAME = 'brick-breaker-cache-v3';
+
+// service-worker.js (robust pentru GitHub Pages project sites)
+const SW_SCOPE = self.location.pathname.replace(/\/service-worker\.js$/, ''); 
+// Exemplu: /NumeleRepo -> folosit ca prefix
+
+const CACHE_NAME = 'brick-breaker-cache-v4';
+
+// Listează toate asset-urile cu prefixul SW_SCOPE
 const ASSETS = [
-  './',
-  './index.html',
-  './manifest.json',
-  './icon-192.png',
-  './icon-512.png',
-  './levels.js',
-  './game.js',
-  './pwa.js'
+  `${SW_SCOPE}/`,
+  `${SW_SCOPE}/index.html`,
+  `${SW_SCOPE}/manifest.json`,
+  `${SW_SCOPE}/icon-192.png`,
+  `${SW_SCOPE}/icon-512.png`,
+  `${SW_SCOPE}/levels.js`,
+  `${SW_SCOPE}/game.js`,
+  `${SW_SCOPE}/pwa.js`
 ];
+
 self.addEventListener('install', (event) => {
   event.waitUntil(caches.open(CACHE_NAME).then(cache => cache.addAll(ASSETS)));
 });
+
 self.addEventListener('activate', (event) => {
-  event.waitUntil(caches.keys().then(keys => Promise.all(keys.filter(k=>k!==CACHE_NAME).map(k=>caches.delete(k)))));
-});
-self.addEventListener('fetch', (event) => {
-  event.respondWith(
-    caches.match(event.request).then(resp => resp || fetch(event.request).then(fetchResp => {
-      const copy = fetchResp.clone();
-      caches.open(CACHE_NAME).then(cache => cache.put(event.request, copy));
-      return fetchResp;
-    }).catch(() => caches.match('./index.html')))
+  event.waitUntil(
+    caches.keys().then(keys =>
+      Promise.all(keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k)))
+    )
   );
 });
+
+// Network-first pentru fișierele listate; fallback la index.html pentru navigații
+self.addEventListener('fetch', (event) => {
+  const req = event.request;
+  event.respondWith(
+    caches.match(req).then(cached => {
+      // Pentru navigații (HTML pages), dă fallback la index.html pe 404/offline
+      const isNavRequest =
+        req.mode === 'navigate' ||
+        (req.headers.get('accept') || '').includes('text/html');
+
+      if (cached) return cached;
+
+      return fetch(req)
+        .then(resp => {
+          // Cache ON-THE-FLY
+          const copy = resp.clone();
+          caches.open(CACHE_NAME).then(cache => cache.put(req, copy));
+          return resp;
+        })
+        .catch(() => {
+          if (isNavRequest) {
+            return caches.match(`${SW_SCOPE}/index.html`);
+          }
+          return caches.match(req);
+        });
+       })
+  );
