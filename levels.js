@@ -7,7 +7,6 @@ window.Levels = (function(){
   function clamp(v,a,b){ return Math.max(a, Math.min(b, v)); }
 
   function paramsForStage(n){
-    // Nivel 12: culoar de 1 coloană (semnătură)
     const corridorWidth = Math.max(1, (n===12?1:(CORRIDOR_BASE_WIDTH - Math.floor(n/4))));
     const corridorShift = (n===12?2:((n%5)*2 + 2));
     const initSpeed = 300 + n*20;
@@ -24,8 +23,10 @@ window.Levels = (function(){
   }
 
   function compute(mode, level, wave){
+    const BRICK_W = 42, BRICK_H = 16, BRICK_GAP = 2;
+    const BRICK_COLS = 16, BRICK_ROWS = 10;
     const barrierRows = Math.floor(BRICK_ROWS*0.6);
-    const offsetX = (800 - (BRICK_COLS * (BRICK_W + BRICK_GAP) - BRICK_GAP)) / 2; // W=800 logic
+    const offsetX = (800 - (BRICK_COLS * (BRICK_W + BRICK_GAP) - BRICK_GAP)) / 2;
 
     let p, hpBoost, signature=false;
     if(mode==='level'){ p = paramsForStage(level); hpBoost = Math.floor(level/3); signature = (level===12); }
@@ -41,19 +42,15 @@ window.Levels = (function(){
     for(let r=0;r<BRICK_ROWS;r++){
       for(let c=0;c<BRICK_COLS;c++){
         const inCorridor1 = (c>=corridorCol && c<corridorCol+corridorWidth && r<barrierRows);
-        // Al doilea culoar se deschide ulterior, blueprint-ul îl include la început.
         if(inCorridor1) continue;
-
         const x = offsetX + c * (BRICK_W + BRICK_GAP);
         const y = 80 + r * (BRICK_H + BRICK_GAP);
         let hp = (r>barrierRows ? 2 + hpBoost : 1);
         let requiresPierce = false, indestructible = false, opensCorridor=false;
 
         if(specialRow && r===0){
-          if(c%2===0){ indestructible=true; }
-          else { requiresPierce=true; hp = 2 + hpBoost; }
+          if(c%2===0){ indestructible=true; } else { requiresPierce=true; hp = 2 + hpBoost; }
         }
-        // „Priză” în cameră pentru nivelul semnătură (deschide al doilea canal)
         if(signature && r===barrierRows && c===Math.min(BRICK_COLS-2, corridorCol+3)) {
           opensCorridor=true; hp=2 + hpBoost;
         }
@@ -66,7 +63,6 @@ window.Levels = (function(){
   }
 
   function openSecondCorridor(state){
-    // Elimină bricks în zona barierei pe coloana corridor2Col (1 lățime) pentru al doilea canal
     if(state.corridor2Col==null) return;
     for(let i=state.bricks.length-1;i>=0;i--){
       const br = state.bricks[i];
@@ -74,8 +70,8 @@ window.Levels = (function(){
       const r = Math.round((br.y - 80) / (state.BRICK_H + state.BRICK_GAP));
       if(r < state.barrierRows && c === state.corridor2Col){
         state.bricks.splice(i,1);
-           }
-    }
+      }
+       }
   }
 
   return { compute, openSecondCorridor, paramsForStage, paramsForEndless };
