@@ -2,91 +2,372 @@
 <html lang="ro">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
-  <title>Brick Breaker PWA</title>
-  <link rel="manifest" href="manifest.json">
-  <meta name="theme-color" content="#0f1226" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Brick Breaker – prototip</title>
   <style>
-    html, body { height: 100%; margin: 0; background: #0f1226; color: #eaeaf0;
-      font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, sans-serif; }
-    body { overflow: hidden; }
-    #wrap { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; gap: 8px; padding: 8px; }
-    canvas { display: block; width: 100vw; height: calc(100vh - 140px);
-      background: #11162e; border: 1px solid #2a2f55; box-shadow: 0 0 24px rgba(34,102,255,0.25); touch-action: none; }
-    .hud { display: flex; gap: 8px; align-items: center; justify-content: center; flex-wrap: wrap; max-width: 100vw; }
+    html, body { height: 100%; margin: 0; background: #0f1226; color: #eaeaf0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, sans-serif; }
+    #wrap { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 12px; }
+    canvas { background: #11162e; border: 1px solid #2a2f55; box-shadow: 0 0 24px rgba(34, 102, 255, 0.25); }
+    .hud { display: flex; gap: 16px; align-items: center; justify-content: center; flex-wrap: wrap; }
     .btn { background: #2266ff; color: white; border: none; padding: 8px 12px; border-radius: 6px; cursor: pointer; }
-    .legend { font-size: 12px; opacity: 0.85; text-align: center; padding: 0 8px; }
-    .tag { padding: 2px 8px; border-radius: 999px; background: #1b2a5e; font-size: 12px; }
-    #menu { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0.55); backdrop-filter: blur(3px); z-index: 9999; }
-    .panel { background: #0f1430; border: 1px solid #2a2f55; box-shadow: 0 12px 40px rgba(34,102,255,0.25);
-      border-radius: 10px; padding: 16px; width: min(720px, 92vw); max-height: 92vh; overflow: auto; }
-    .grid { display: grid; grid-template-columns: repeat(auto-fill,minmax(80px,1fr)); gap: 8px; }
-    .levelbtn { padding: 10px; text-align: center; border: 1px solid #2a2f55; border-radius: 8px; background: #12183a; cursor: pointer; }
-    .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-    [hidden] { display: none !important; }
-    .hidden { display: none !important; pointer-events: none; }
-    #timers { display: flex; gap: 8px; align-items: center; justify-content: center; flex-wrap: wrap; }
-    .timer { display: flex; align-items: center; gap: 6px; }
-    .bar { width: 120px; height: 8px; border-radius: 999px; background: #1b2a5e; overflow: hidden; }
-    .fill { height: 100%; background: linear-gradient(90deg, #ffd166, #ffffff); }
-    .fill-pierce { background: linear-gradient(90deg, #ef476f, #ffffff); }
-    #touchControls { position: fixed; inset: 0; display: none; }
-    .zone { position: absolute; top: 0; bottom: 0; width: 50vw; opacity: 0; }
-    .zone.left { left: 0; }
-    .zone.right { right: 0; }
+    .btn:disabled { background: #3b4a8f; cursor: not-allowed; }
+    .legend { font-size: 13px; opacity: 0.85; }
+    a { color: #8ab4ff; }
   </style>
 </head>
 <body>
   <div id="wrap">
-    <h1 style="margin:6px 0 0">Brick Breaker – PWA</h1>
+    <h1>Brick Breaker – prototip</h1>
     <div class="hud">
-      <div class="tag">Mod: <span id="modeTag">Nivel</span></div>
-      <div class="tag">Scor: <span id="score">0</span></div>
-      <div class="tag">Vieți: <span id="lives">3</span></div>
-      <div class="tag">Etapa: <span id="stage">1</span></div>
-      <button id="menuBtn" class="btn">Meniu</button>
+      <div><strong>Scor:</strong> <span id="score">0</span></div>
+      <div><strong>Vieți:</strong> <span id="lives">3</span></div>
       <button id="reset" class="btn">Reset</button>
       <button id="pause" class="btn">Pauză</button>
-      <button id="soundBtn" class="btn" title="Sound On/Off">🔊 Sunet: ON</button>
-      <button id="installBtn" class="btn" style="display:none">Instalează</button>
-    </div>
-    <div id="timers">
-      <div class="timer" id="wideTimerBox" hidden>
-        <span>Wide</span>
-        <div class="bar"><div class="fill" id="wideFill" style="width:0%"></div></div>
-      </div>
-      <div class="timer" id="pierceTimerBox" hidden>
-        <span>Pierce</span>
-        <div class="bar"><div class="fill fill-pierce" id="pierceFill" style="width:0%"></div></div>
-      </div>
     </div>
     <canvas id="game" width="800" height="600" aria-label="Brick Breaker"></canvas>
-    <div class="legend">Controale: ←/→, A/D, P pauză, R reset. Pe mobil: Drag paleta sau Tap stânga/dreapta.</div>
-  </div>
-
-  <div id="menu" class="hidden" hidden>
-    <div class="panel">
-      <h2>Alege Mod</h2>
-      <div class="row">
-        <button id="chooseLevelMode" class="btn">Mod Nivel</button>
-        <button id="chooseEndless" class="btn">Mod Endless</button>
-        <div style="flex:1"></div>
-        <button id="closeMenu" class="btn" title="ESC">Închide</button>
-      </div>
-      <hr/>
-      <h3>Niveluri</h3>
-      <div class="grid" id="levelGrid"></div>
+    <div class="legend">
+      Controale: <strong>← / →</strong> sau <strong>A / D</strong> pentru paletă, <strong>P</strong> pauză, <strong>R</strong> reset.
+      <br />
+      Power-up: <em>MultiBall</em> (biluță albastră) – când o prinzi cu paleta, se multiplică bilele.
     </div>
   </div>
 
-  <div id="touchControls">
-    <div class="zone left"></div>
-    <div class="zone right"></div>
-  </div>
+  <script>
+  // ==== Parametri joc ====
+  const W = 800, H = 600;
+  const PADDLE_W = 110, PADDLE_H = 12, PADDLE_SPEED = 520; // px/s
+  const BALL_RADIUS = 7;
+  const INIT_BALL_SPEED = 300; // px/s
+  const BRICK_ROWS = 10, BRICK_COLS = 16, BRICK_W = 42, BRICK_H = 16, BRICK_GAP = 2;
+  const POWERUP_DROP_CHANCE = 0.22; // 22% drop dintr-un brick
+  const MAX_BALLS = 32;
 
-  <!-- Scripts în ordine, cu defer -->
-  <script defer src="./levels.js"></script>
-  <script defer src="./game.js"></script>
-  <script defer src="./pwa.js"></script>
+  // Culoar: lățimea golului vertical prin care trebuie introdusă bila
+  const CORRIDOR_COL = 7; // indice de coloană pentru gol (0..BRICK_COLS-1)
+  const CORRIDOR_WIDTH = 2; // câte coloane libere alăturate (gol)
+
+  // ==== Utilitare ====
+  function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
+  function randRange(a, b) { return a + Math.random() * (b - a); }
+  function sign(v) { return v < 0 ? -1 : 1; }
+
+  // ==== Clase ====
+  class Paddle {
+    constructor() {
+      this.w = PADDLE_W;
+      this.h = PADDLE_H;
+      this.x = (W - this.w) / 2;
+      this.y = H - 42;
+      this.vx = 0;
+      this.wideTimer = 0; // power-up de lățire
+    }
+    update(dt, input) {
+      const speed = PADDLE_SPEED;
+      this.vx = 0;
+      if (input.left) this.vx -= speed;
+      if (input.right) this.vx += speed;
+      this.x += this.vx * dt;
+      this.x = clamp(this.x, 0, W - this.w);
+      if (this.wideTimer > 0) {
+        this.wideTimer -= dt;
+        this.w = PADDLE_W * 1.5;
+      } else {
+        this.w = PADDLE_W;
+      }
+    }
+    draw(ctx) {
+      ctx.fillStyle = '#48c774';
+      ctx.fillRect(this.x, this.y, this.w, this.h);
+    }
+    rect() { return {x: this.x, y: this.y, w: this.w, h: this.h}; }
+  }
+
+  class Ball {
+    constructor(x, y, speedMul = 1) {
+      this.x = x; this.y = y;
+      const angle = randRange(Math.PI*0.3, Math.PI*0.7);
+      const speed = INIT_BALL_SPEED * speedMul;
+      this.vx = Math.cos(angle) * speed;
+      this.vy = -Math.abs(Math.sin(angle) * speed);
+      this.r = BALL_RADIUS;
+      this.pierceTimer = 0; // când > 0, trece prin bricks fără a-și schimba direcția
+      this.color = '#f4f1c9';
+    }
+    update(dt) {
+      this.x += this.vx * dt;
+      this.y += this.vy * dt;
+      // Coliziuni margini
+      if (this.x - this.r < 0) { this.x = this.r; this.vx = Math.abs(this.vx); }
+      if (this.x + this.r > W) { this.x = W - this.r; this.vx = -Math.abs(this.vx); }
+      if (this.y - this.r < 0) { this.y = this.r; this.vy = Math.abs(this.vy); }
+    }
+    draw(ctx) {
+      ctx.fillStyle = this.color;
+      ctx.beginPath(); ctx.arc(this.x, this.y, this.r, 0, Math.PI*2); ctx.fill();
+    }
+  }
+
+  class Brick {
+    constructor(x, y, w, h, hp=1) {
+      this.x = x; this.y = y; this.w = w; this.h = h; this.hp = hp;
+      // tip vizual bazat pe hp
+      this.baseColor = hp > 1 ? '#ff7b7b' : '#7aa2ff';
+    }
+    draw(ctx) {
+      const c = this.hp > 1 ? this.baseColor : '#7aa2ff';
+      ctx.fillStyle = c;
+      ctx.fillRect(this.x, this.y, this.w, this.h);
+      ctx.strokeStyle = '#0c1229'; ctx.lineWidth = 1;
+      ctx.strokeRect(this.x + 0.5, this.y + 0.5, this.w - 1, this.h - 1);
+    }
+  }
+
+  class PowerUp {
+    constructor(x, y, type) {
+      this.x = x; this.y = y; this.type = type; // 'multiball' | 'wide' | 'pierce' etc.
+      this.w = 14; this.h = 14; this.vy = 140; this.active = true;
+    }
+    update(dt) { this.y += this.vy * dt; if (this.y > H + 24) this.active = false; }
+    draw(ctx) {
+      if (!this.active) return;
+      if (this.type === 'multiball') {
+        ctx.fillStyle = '#4da6ff';
+      } else if (this.type === 'wide') {
+        ctx.fillStyle = '#ffd166';
+      } else if (this.type === 'pierce') {
+        ctx.fillStyle = '#ef476f';
+      } else {
+        ctx.fillStyle = '#aaa';
+      }
+      ctx.fillRect(this.x, this.y, this.w, this.h);
+    }
+    rect() { return {x: this.x, y: this.y, w: this.w, h: this.h}; }
+  }
+
+  // ==== Coliziune cerc-rect simplificată ====
+  function circleRectCollide(cx, cy, r, rx, ry, rw, rh) {
+    const closestX = clamp(cx, rx, rx + rw);
+    const closestY = clamp(cy, ry, ry + rh);
+    const dx = cx - closestX;
+    const dy = cy - closestY;
+    return (dx*dx + dy*dy) <= r*r;
+  }
+
+  // ==== Joc ====
+  const canvas = document.getElementById('game');
+  const ctx = canvas.getContext('2d');
+  const uiScore = document.getElementById('score');
+  const uiLives = document.getElementById('lives');
+  const btnReset = document.getElementById('reset');
+  const btnPause = document.getElementById('pause');
+
+  const input = {left:false, right:false, paused:false};
+
+  let paddle, balls, bricks, powerUps, score, lives, running, levelCleared;
+
+  function buildLevel() {
+    bricks = [];
+    // Construim un "zid" de bricks care lasă un culoar îngust în partea de sus,
+    // apoi o cameră cu bricks dincolo de culoar.
+    const offsetX = (W - (BRICK_COLS * (BRICK_W + BRICK_GAP) - BRICK_GAP)) / 2;
+    const offsetY = 80;
+
+    for (let r = 0; r < BRICK_ROWS; r++) {
+      for (let c = 0; c < BRICK_COLS; c++) {
+        // lăsăm un canal gol de CORRIDOR_WIDTH coloane în zona rândurilor superioare,
+        // ca bila să poată pătrunde în cameră.
+        const inCorridor = (c >= CORRIDOR_COL && c < CORRIDOR_COL + CORRIDOR_WIDTH && r < Math.floor(BRICK_ROWS*0.6));
+        if (inCorridor) continue; // gol
+        const x = offsetX + c * (BRICK_W + BRICK_GAP);
+        const y = offsetY + r * (BRICK_H + BRICK_GAP);
+        const hp = r > BRICK_ROWS*0.6 ? 2 : 1; // cărămizi mai puternice în cameră
+        bricks.push(new Brick(x, y, BRICK_W, BRICK_H, hp));
+      }
+    }
+  }
+
+  function resetGame() {
+    paddle = new Paddle();
+    balls = [new Ball(W/2, H - 60, 1)];
+    powerUps = [];
+    score = 0;
+    lives = 3;
+    levelCleared = false;
+    buildLevel();
+    running = true;
+  }
+
+  function spawnPowerUp(x, y) {
+    // Deocamdată doar MultiBall cu probabilitate POWERUP_DROP_CHANCE
+    if (Math.random() < POWERUP_DROP_CHANCE) {
+      powerUps.push(new PowerUp(x, y, 'multiball'));
+    }
+  }
+
+  function update(dt) {
+    if (!running || input.paused) return;
+
+    paddle.update(dt, input);
+
+    // actualizare power-up-uri
+    for (const pu of powerUps) pu.update(dt);
+    powerUps = powerUps.filter(p => p.active);
+
+    // colectare power-up de către paletă
+    for (const pu of powerUps) {
+      const pr = pu.rect(); const padd = paddle.rect();
+      const collide = !(pr.x + pr.w < padd.x || pr.x > padd.x + padd.w || pr.y + pr.h < padd.y || pr.y > padd.y + padd.h);
+      if (collide) {
+        if (pu.type === 'multiball') {
+          // duplicăm bilele (până la MAX_BALLS)
+          const newBalls = [];
+          for (const b of balls) {
+            if (balls.length + newBalls.length >= MAX_BALLS) break;
+            const nb1 = new Ball(b.x, b.y, 1);
+            const nb2 = new Ball(b.x, b.y, 1);
+            nb1.vx = b.vx * 0.95; nb1.vy = -Math.abs(b.vy);
+            nb2.vx = -b.vx * 0.95; nb2.vy = -Math.abs(b.vy);
+            nb1.color = '#cde8ff'; nb2.color = '#cde8ff';
+            newBalls.push(nb1, nb2);
+          }
+          balls.push(...newBalls);
+        }
+        pu.active = false;
+      }
+    }
+
+    // actualizare bile + coliziuni
+    for (const ball of balls) {
+      ball.update(dt);
+
+      // coliziune cu paleta
+      const padd = paddle.rect();
+      if (circleRectCollide(ball.x, ball.y, ball.r, padd.x, padd.y, padd.w, padd.h) && ball.vy > 0) {
+        // reflectă vertical și ajustează unghiul în funcție de locul loviturii
+        const hitPos = (ball.x - padd.x) / padd.w - 0.5; // -0.5..+0.5
+        const angle = hitPos * Math.PI * 0.6; // ± ~108° * 0.6
+        const speed = Math.hypot(ball.vx, ball.vy);
+        ball.vx = Math.sin(angle) * speed;
+        ball.vy = -Math.abs(Math.cos(angle) * speed);
+        ball.y = padd.y - ball.r - 0.01;
+      }
+
+      // coliziune cu bricks
+      for (let i = bricks.length - 1; i >= 0; i--) {
+        const br = bricks[i];
+        if (circleRectCollide(ball.x, ball.y, ball.r, br.x, br.y, br.w, br.h)) {
+          // determinăm partea de impact simplist
+          const dx = (ball.x - (br.x + br.w/2)) / (br.w/2);
+          const dy = (ball.y - (br.y + br.h/2)) / (br.h/2);
+          if (Math.abs(dx) > Math.abs(dy)) {
+            ball.vx = -ball.vx;
+          } else {
+            ball.vy = -ball.vy;
+          }
+          // damage & scor
+          br.hp -= 1; score += 10;
+          if (br.hp <= 0) {
+            bricks.splice(i,1);
+            spawnPowerUp(br.x + br.w/2 - 7, br.y + br.h/2 - 7);
+          }
+        }
+      }
+
+      // iese pe jos -> pierde o viață (doar dacă e ultima bilă)
+      if (ball.y - ball.r > H) {
+        // eliminăm bila
+        const idx = balls.indexOf(ball);
+        if (idx !== -1) balls.splice(idx,1);
+        if (balls.length === 0) {
+          lives -= 1;
+          if (lives > 0) {
+            // respawn o bilă
+            balls.push(new Ball(W/2, H - 80, 1));
+          } else {
+            running = false; // game over
+          }
+        }
+      }
+    }
+
+    // verificăm cleared
+    if (bricks.length === 0) {
+      levelCleared = true; running = false;
+    }
+
+    uiScore.textContent = score;
+    uiLives.textContent = lives;
+  }
+
+  function draw() {
+    // fundal
+    ctx.fillStyle = '#0e1734';
+    ctx.fillRect(0,0,W,H);
+
+    // efecte ambient
+    const grad = ctx.createLinearGradient(0,0,W,H);
+    grad.addColorStop(0,'rgba(34,102,255,0.06)');
+    grad.addColorStop(1,'rgba(255,255,255,0.02)');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0,0,W,H);
+
+    // bricks
+    for (const br of bricks) br.draw(ctx);
+
+    // power-ups
+    for (const pu of powerUps) pu.draw(ctx);
+
+    // paddle & balls
+    paddle.draw(ctx);
+    for (const ball of balls) ball.draw(ctx);
+
+    // mesaje
+    if (!running) {
+      ctx.fillStyle = '#eaeaf0';
+      ctx.textAlign = 'center';
+      if (levelCleared) {
+        ctx.font = '24px system-ui';
+        ctx.fillText('Nivel complet!', W/2, H/2 - 12);
+      } else if (lives <= 0) {
+        ctx.font = '24px system-ui';
+        ctx.fillText('Game Over', W/2, H/2 - 12);
+      } else if (input.paused) {
+        ctx.font = '24px system-ui';
+        ctx.fillText('Pauză', W/2, H/2 - 12);
+      }
+      ctx.font = '14px system-ui';
+      ctx.fillText('Apasă R pentru Reset', W/2, H/2 + 18);
+    }
+  }
+
+  // ==== Loop ====
+  let last = performance.now();
+  function loop(now) {
+    const dt = Math.min(0.033, (now - last) / 1000); // cap dt ~33ms
+    last = now;
+    update(dt);
+    draw();
+    requestAnimationFrame(loop);
+  }
+
+  // ==== Input ====
+  window.addEventListener('keydown', (e) => {
+    if (e.key === 'ArrowLeft' || e.key.toLowerCase() === 'a') input.left = true;
+    if (e.key === 'ArrowRight' || e.key.toLowerCase() === 'd') input.right = true;
+    if (e.key.toLowerCase() === 'p') input.paused = !input.paused;
+    if (e.key.toLowerCase() === 'r') resetGame();
+  });
+  window.addEventListener('keyup', (e) => {
+    if (e.key === 'ArrowLeft' || e.key.toLowerCase() === 'a') input.left = false;
+    if (e.key === 'ArrowRight' || e.key.toLowerCase() === 'd') input.right = false;
+  });
+
+  btnReset.addEventListener('click', resetGame);
+  btnPause.addEventListener('click', () => { input.paused = !input.paused; });
+
+  // Start
+  resetGame();
+  requestAnimationFrame(loop);
+  </script>
 </body>
 </html>
