@@ -1,23 +1,92 @@
-
 <!DOCTYPE html>
 <html lang="ro">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Brick Breaker PWA</title>
-  manifest.json
+  <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#0f1226" />
-  <!-- (Stilurile rămân identice cu varianta precedentă — le ai în workspace.) -->
   <style>
-    /* ... CSS din build-ul anterior, inclusiv [hidden], .hidden, HUD, modal, timere ... */
+    html, body { height: 100%; margin: 0; background: #0f1226; color: #eaeaf0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, sans-serif; }
+    #wrap { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 12px; }
+    canvas { background: #11162e; border: 1px solid #2a2f55; box-shadow: 0 0 24px rgba(34, 102, 255, 0.25); }
+    .hud { display: flex; gap: 12px; align-items: center; justify-content: center; flex-wrap: wrap; }
+    .btn { background: #2266ff; color: white; border: none; padding: 8px 12px; border-radius: 6px; cursor: pointer; }
+    .legend { font-size: 13px; opacity: 0.85; max-width: 800px; text-align: center; }
+    .tag { padding: 2px 8px; border-radius: 999px; background: #1b2a5e; font-size: 12px; }
+
+    /* Modal menu */
+    #menu { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0.55); backdrop-filter: blur(3px); z-index: 9999; }
+    .panel { background: #0f1430; border: 1px solid #2a2f55; box-shadow: 0 12px 40px rgba(34,102,255,0.25); border-radius: 10px; padding: 16px; width: min(720px, 92vw); }
+    .panel h2 { margin: 0 0 8px; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fill,minmax(80px,1fr)); gap: 8px; }
+    .levelbtn { padding: 10px; text-align: center; border: 1px solid #2a2f55; border-radius: 8px; background: #12183a; cursor: pointer; }
+    .levelbtn:hover { background: #1a2250; }
+    .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+
+    /* Robust hidden handling */
+    [hidden] { display: none !important; }
+    .hidden { display: none !important; pointer-events: none; }
+
+    /* Timers HUD */
+    #timers { display: flex; gap: 8px; align-items: center; justify-content: center; flex-wrap: wrap; }
+    .timer { display: flex; align-items: center; gap: 6px; }
+    .bar { width: 120px; height: 8px; border-radius: 999px; background: #1b2a5e; overflow: hidden; }
+    .fill { height: 100%; background: linear-gradient(90deg, #ffd166, #ffffff); }
+    .fill-pierce { background: linear-gradient(90deg, #ef476f, #ffffff); }
   </style>
 </head>
 <body>
-  <!-- HUD + Timers + Canvas + Modal (exact ca în build-ul anterior) -->
-  <!-- ... markup identic cu versiunea "index_feature_upgrade.html" ... -->
+  <div id="wrap">
+    <h1>Brick Breaker – PWA</h1>
+    <div class="hud">
+      <div class="tag">Mod: <span id="modeTag">Nivel</span></div>
+      <div class="tag">Scor: <span id="score">0</span></div>
+      <div class="tag">Vieți: <span id="lives">3</span></div>
+      <div class="tag">Etapa: <span id="stage">1</span></div>
+      <button id="menuBtn" class="btn">Meniu</button>
+      <button id="reset" class="btn">Reset</button>
+      <button id="pause" class="btn">Pauză</button>
+      <button id="soundBtn" class="btn" title="Sound On/Off">🔊 Sunet: ON</button>
+      <button id="installBtn" class="btn" style="display:none">Instalează</button>
+    </div>
+    <div id="timers">
+      <div class="timer" id="wideTimerBox" hidden>
+        <span>Wide</span>
+        <div class="bar"><div class="fill" id="wideFill" style="width:0%"></div></div>
+      </div>
+      <div class="timer" id="pierceTimerBox" hidden>
+        <span>Pierce</span>
+        <div class="bar"><div class="fill fill-pierce" id="pierceFill" style="width:0%"></div></div>
+      </div>
+    </div>
+    <canvas id="game" width="800" height="600" aria-label="Brick Breaker"></canvas>
+    <div class="legend">
+      Controale: <strong>← / →</strong> sau <strong>A / D</strong>; <strong>P</strong> pauză; <strong>R</strong> reset.<br/>
+      Power-up-uri: <em>MultiBall</em> (albastru), <em>Wide</em> (galben), <em>Pierce</em> (roz), <em>Split</em> (turcoaz).<br/>
+      Nivel semnătură: <em>12</em> – culoar de 1 coloană, prima linie metal/requiresPierce, „priză” ce deschide un al doilea canal.
+    </div>
+  </div>
 
-  <!-- Scripts în ordine -->
-  ./levels.js</script>
-  ./game.js</script>
-   ./pwa.js</script>
+  <!-- Menu Overlay -->
+  <div id="menu" class="hidden" hidden>
+    <div class="panel">
+      <h2>Alege Mod</h2>
+      <div class="row">
+        <button id="chooseLevelMode" class="btn">Mod Nivel</button>
+        <button id="chooseEndless" class="btn">Mod Endless</button>
+        <div style="flex:1"></div>
+        <button id="closeMenu" class="btn" title="ESC">Închide</button>
+      </div>
+      <hr/>
+      <h3>Niveluri</h3>
+      <div class="grid" id="levelGrid"></div>
+    </div>
+  </div>
+
+  <!-- Scripts: load levels first, then game, then pwa -->
+  <script src="./levels.js"></script>
+  <script src="./game.js"></script>
+  <script src="./pwa.js"></script>
 </body>
+</html>
