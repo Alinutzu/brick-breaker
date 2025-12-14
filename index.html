@@ -2,63 +2,44 @@
 <html lang="ro">
 <head>
   <meta charset="UTF-8" />
-  <!-- iOS PWA safe area + prevent zoom/pinch -->
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
-  <title>Brick Breaker PWA</title>
+  <title>Brick Breaker PWA (Debug)</title>
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#0f1226" />
   <style>
-    /* Global box-sizing to avoid accidental overflow */
     *, *::before, *::after { box-sizing: border-box; }
-    html, body { height: 100%; margin: 0; background: #0f1226; color: #eaeaf0;
-      font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, sans-serif;
-      overscroll-behavior: none; touch-action: none; }
-    /* No scroll during gameplay */
+    html, body { height: 100%; margin: 0; background: #0f1226; color: #eaeaf0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, sans-serif; overscroll-behavior: none; touch-action: none; }
     body { overflow-x: hidden; overflow-y: hidden; }
-
-    /* Layout fixed to viewport; avoid horizontal overflow */
-    #wrap { position: fixed; inset: env(safe-area-inset-top) 0 env(safe-area-inset-bottom) 0;
-      display: flex; flex-direction: column; align-items: center; justify-content: flex-start;
-      gap: 8px; padding: 8px; width: 100%; touch-action: none; }
-
-    /* Canvas fits width; JS will adjust buffer size */
-    canvas { display: block; width: 100%; height: calc(100vh - 140px);
-      background: #11162e; border: 1px solid #2a2f55; box-shadow: 0 0 24px rgba(34,102,255,0.25);
-      touch-action: none; }
-
+    #wrap { position: fixed; inset: env(safe-area-inset-top) 0 env(safe-area-inset-bottom) 0; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; gap: 8px; padding: 8px; width: 100%; touch-action: none; }
+    canvas { display: block; width: 100%; height: calc(100vh - 140px); background: #11162e; border: 1px solid #2a2f55; box-shadow: 0 0 24px rgba(34,102,255,0.25); touch-action: none; }
     .hud { display: flex; gap: 8px; align-items: center; justify-content: center; flex-wrap: wrap; width: 100%; }
     .btn { background: #2266ff; color: white; border: none; padding: 8px 12px; border-radius: 6px; cursor: pointer; }
     .legend { font-size: 12px; opacity: 0.85; text-align: center; padding: 0 8px; }
     .tag { padding: 2px 8px; border-radius: 999px; background: #1b2a5e; font-size: 12px; }
-
-    #menu { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center;
-      background: rgba(0,0,0,0.55); backdrop-filter: blur(3px); z-index: 9999; }
-    .panel { background: #0f1430; border: 1px solid #2a2f55; box-shadow: 0 12px 40px rgba(34,102,255,0.25);
-      border-radius: 10px; padding: 16px; width: min(720px, 92vw); max-height: 92vh; overflow: auto; }
+    #menu { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0.55); backdrop-filter: blur(3px); z-index: 9999; }
+    .panel { background: #0f1430; border: 1px solid #2a2f55; box-shadow: 0 12px 40px rgba(34,102,255,0.25); border-radius: 10px; padding: 16px; width: min(720px, 92vw); max-height: 92vh; overflow: auto; }
     .grid { display: grid; grid-template-columns: repeat(auto-fill,minmax(80px,1fr)); gap: 8px; }
     .levelbtn { padding: 10px; text-align: center; border: 1px solid #2a2f55; border-radius: 8px; background: #12183a; cursor: pointer; }
     .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-
     [hidden] { display: none !important; }
     .hidden { display: none !important; pointer-events: none; }
-
     #timers { display: flex; gap: 8px; align-items: center; justify-content: center; flex-wrap: wrap; }
     .timer { display: flex; align-items: center; gap: 6px; }
     .bar { width: 120px; height: 8px; border-radius: 999px; background: #1b2a5e; overflow: hidden; }
     .fill { height: 100%; background: linear-gradient(90deg, #ffd166, #ffffff); }
     .fill-pierce { background: linear-gradient(90deg, #ef476f, #ffffff); }
-
-    /* Touch L/R zones must NOT scroll the page */
     #touchControls { position: fixed; inset: 0; display: none; }
     .zone { position: absolute; top: 0; bottom: 0; width: 50vw; opacity: 0; touch-action: none; }
     .zone.left { left: 0; }
     .zone.right { right: 0; }
+    /* Debug banner */
+    #debug { position: fixed; top: 8px; left: 50%; transform: translateX(-50%); background: #ef476f; color: #fff; padding: 8px 12px; border-radius: 6px; font-size: 13px; display:none; z-index: 10000; }
+    #ok { position: fixed; top: 8px; left: 8px; background: #48c774; color: #0f1226; padding: 6px 10px; border-radius: 6px; font-size: 12px; display:none; z-index: 10000; }
   </style>
 </head>
 <body>
   <div id="wrap">
-    <h1 style="margin:6px 0 0">Brick Breaker – PWA</h1>
-
+    <h1 style="margin:6px 0 0">Brick Breaker – PWA (Debug)</h1>
     <div class="hud">
       <div class="tag">Mod: <span id="modeTag">Nivel</span></div>
       <div class="tag">Scor: <span id="score">0</span></div>
@@ -70,7 +51,6 @@
       <button id="soundBtn" class="btn" title="Sound On/Off">🔊 Sunet: ON</button>
       <button id="installBtn" class="btn" style="display:none">Instalează</button>
     </div>
-
     <div id="timers">
       <div class="timer" id="wideTimerBox" hidden>
         <span>Wide</span>
@@ -81,7 +61,6 @@
         <div class="bar"><div class="fill fill-pierce" id="pierceFill" style="width:0%"></div></div>
       </div>
     </div>
-
     <canvas id="game" width="800" height="600" aria-label="Brick Breaker"></canvas>
     <div class="legend">Controale: ←/→, A/D, P pauză, R reset. Pe mobil: Drag paleta sau Tap stânga/dreapta.</div>
   </div>
@@ -106,13 +85,44 @@
     <div class="zone right"></div>
   </div>
 
-  <!-- Cache-bust v042 pentru SW update -->
-  <script defer src="./levels.js?v=042"></script>
-  <script defer src="./game.js?v=042"></script>
-  <script defer src="./pwa.js?v=042"></script>
+  <div id="debug"></div>
+  <div id="ok">Import OK</div>
 
-  <!-- Prevent body gestures fallback (extra safety) -->
+  <!-- Absolute imports + cache-bust v043 -->
+  <script defer src="/brick-breaker/levels.js?v=043"
+          onload="console.log('[levels.js] loaded');"
+          onerror="(function(){const b=document.getElementById('debug');b.textContent='Eroare: levels.js nu se încarcă';b.style.display='block';console.error('Import failed: levels.js');})();"></script>
+
+  <script defer src="/brick-breaker/game.js?v=043"
+          onload="console.log('[game.js] loaded');"
+          onerror="(function(){const b=document.getElementById('debug');b.textContent='Eroare: game.js nu se încarcă';b.style.display='block';console.error('Import failed: game.js');})();"></script>
+
+  <script defer src="/brick-breaker/pwa.js?v=043"
+          onload="console.log('[pwa.js] loaded');"
+          onerror="(function(){const b=document.getElementById('debug');b.textContent='Eroare: pwa.js nu se încarcă';b.style.display='block';console.error('Import failed: pwa.js');})();"></script>
+
+  <!-- Diagnostics after load -->
   <script>
+    window.addEventListener('load', async () => {
+      const b=document.getElementById('debug'); const ok=document.getElementById('ok');
+      const hasLevels = !!window.Levels;
+      const hasBoot = !!window.gameBooted;
+      console.log('[diagnostic] Levels:', hasLevels, 'gameBooted:', hasBoot);
+      if (hasLevels && hasBoot) { ok.style.display='block'; setTimeout(()=>ok.style.display='none', 3000); }
+      else {
+        b.textContent = 'Importuri incomplete: Levels=' + hasLevels + ', gameBooted=' + hasBoot + '. Verifică path-urile absolute /brick-breaker/ și versiunea v043.';
+        b.style.display='block';
+      }
+      // Extra check: try fetching files explicitly
+      try{
+        const r1=await fetch('/brick-breaker/levels.js?v=043', {cache:'no-store'});
+        const r2=await fetch('/brick-breaker/game.js?v=043', {cache:'no-store'});
+        const r3=await fetch('/brick-breaker/pwa.js?v=043', {cache:'no-store'});
+        console.log('[fetch check] levels', r1.status, 'game', r2.status, 'pwa', r3.status);
+      }catch(e){ console.warn('fetch check error', e); }
+    });
+
+    // Block gestures globally unless menu is open
     ['touchstart','touchmove','touchend'].forEach(function(ev){
       document.addEventListener(ev, function(e){
         var menu = document.getElementById('menu');
