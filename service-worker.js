@@ -1,6 +1,6 @@
 // Service Worker auto-scope pentru GitHub Pages (project sites)
 const SW_SCOPE = self.location.pathname.replace(/\/service-worker\.js$/, '');
-const CACHE_NAME = 'brick-breaker-cache-v4';
+const CACHE_NAME = 'brick-breaker-cache-v5';
 const ASSETS = [
   `${SW_SCOPE}/`,
   `${SW_SCOPE}/index.html`,

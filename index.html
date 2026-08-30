@@ -1,73 +1,131 @@
 <!DOCTYPE html>
-<html lang="ro">
+<html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
-  <title>Brick Breaker PWA</title>
+  <title>Brick Breaker</title>
   <link rel="manifest" href="manifest.json">
-  <meta name="theme-color" content="#0f1226" />
+  <meta name="theme-color" content="#0a0e1a" />
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="description" content="Hyper-casual brick breaker with 20 labyrinth levels">
   <style>
-    *, *::before, *::after { box-sizing: border-box; }
-    html, body { height: 100%; margin: 0; background: #0f1226; color: #eaeaf0;
-      font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, sans-serif;
-      overscroll-behavior: none; }
-    body { overflow-x: hidden; overflow-y: hidden; }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; background: #0a0e1a; color: #e2e8f0;
+      font-family: 'SF Pro Display', system-ui, -apple-system, sans-serif;
+      overscroll-behavior: none; user-select: none; -webkit-user-select: none; }
+    body { overflow: hidden; display: flex; flex-direction: column; align-items: center; }
 
     #wrap { position: fixed; inset: env(safe-area-inset-top) 0 env(safe-area-inset-bottom) 0;
       display: flex; flex-direction: column; align-items: center; justify-content: flex-start;
-      gap: 8px; padding: 8px; width: 100%; }
+      gap: 6px; padding: 6px 8px; width: 100%; }
 
-    canvas { display: block; width: 100%; height: calc(100vh - 160px);
-      background: #11162e; border: 1px solid #2a2f55; box-shadow: 0 0 24px rgba(34,102,255,0.25);
-      touch-action: none; z-index: 0; }
+    canvas { display: block; width: 100%; height: calc(100vh - 130px);
+      background: #0a0e1a; border-radius: 8px;
+      touch-action: none; z-index: 0;
+      box-shadow: 0 0 40px rgba(59,130,246,0.15), inset 0 0 60px rgba(0,0,0,0.3); }
 
-    .hud { display: flex; gap: 8px; align-items: center; justify-content: center; flex-wrap: wrap; width: 100%; z-index: 100; }
-    .btn { background: #2266ff; color: white; border: none; padding: 8px 12px; border-radius: 6px; cursor: pointer; }
-    .btn:active { transform: translateY(1px); }
-    .legend { font-size: 12px; opacity: 0.85; text-align: center; padding: 0 8px; }
-    .tag { padding: 2px 8px; border-radius: 999px; background: #1b2a5e; font-size: 12px; }
+    .hud { display: none; gap: 6px; align-items: center; justify-content: center; flex-wrap: wrap;
+      width: 100%; z-index: 100; }
+    .hud.active { display: flex; }
+    .tag { padding: 3px 10px; border-radius: 20px; background: rgba(30,41,59,0.8);
+      border: 1px solid rgba(71,85,105,0.3); font-size: 12px; font-weight: 600;
+      letter-spacing: 0.02em; backdrop-filter: blur(4px); }
+    .tag .val { color: #60a5fa; }
+    .btn { background: linear-gradient(135deg, #3b82f6, #6366f1); color: white; border: none;
+      padding: 6px 14px; border-radius: 20px; cursor: pointer; font-size: 12px; font-weight: 600;
+      letter-spacing: 0.03em; transition: all 0.15s; box-shadow: 0 2px 8px rgba(59,130,246,0.3); }
+    .btn:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(59,130,246,0.4); }
+    .btn:active { transform: translateY(0); }
+    .btn-lg { padding: 12px 36px; font-size: 16px; border-radius: 28px; }
+    .btn-outline { background: transparent; border: 2px solid rgba(99,102,241,0.5); }
+    .btn-outline:hover { border-color: #6366f1; background: rgba(99,102,241,0.1); }
+    .legend { font-size: 11px; color: #64748b; text-align: center; padding: 0 8px; }
+    .legend.active { display: block; } .legend { display: none; }
 
-    #menu { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0.55); backdrop-filter: blur(3px); z-index: 1000; }
-    .panel { background: #0f1430; border: 1px solid #2a2f55; box-shadow: 0 12px 40px rgba(34,102,255,0.25); border-radius: 10px; padding: 16px; width: min(760px, 92vw); max-height: 92vh; overflow: auto; }
-    .grid { display: grid; grid-template-columns: repeat(auto-fill,minmax(80px,1fr)); gap: 8px; }
-    .levelbtn { padding: 10px; text-align: center; border: 1px solid #2a2f55; border-radius: 8px; background: #12183a; cursor: pointer; }
+    /* Title Screen */
+    #titleScreen { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center;
+      background: radial-gradient(ellipse at center, #111827 0%, #0a0e1a 70%); z-index: 2000; }
+    #titleScreen.hidden { display: none; }
+    .title-content { text-align: center; padding: 20px; }
+    .title-logo { font-size: 48px; font-weight: 900; letter-spacing: -1px;
+      background: linear-gradient(135deg, #60a5fa, #a78bfa, #f472b6);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      text-shadow: none; margin-bottom: 4px; line-height: 1.1; }
+    .title-sub { font-size: 14px; color: #64748b; margin-bottom: 32px; letter-spacing: 0.1em; text-transform: uppercase; }
+    .title-buttons { display: flex; flex-direction: column; gap: 12px; align-items: center; }
+    .title-btn { width: 220px; }
+    .title-footer { margin-top: 40px; font-size: 11px; color: #475569; }
+
+    /* Menu */
+    #menu { position: fixed; inset: 0; display: none; align-items: center; justify-content: center;
+      background: rgba(0,0,0,0.7); backdrop-filter: blur(8px); z-index: 1000; }
+    #menu.active { display: flex; }
+    .panel { background: linear-gradient(180deg, #111827, #0f172a);
+      border: 1px solid rgba(71,85,105,0.3); border-radius: 16px; padding: 20px;
+      width: min(760px, 92vw); max-height: 92vh; overflow: auto;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.5); }
+    .panel h2 { font-size: 20px; font-weight: 700; margin-bottom: 12px;
+      background: linear-gradient(135deg, #60a5fa, #a78bfa);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+    .panel h3 { font-size: 14px; color: #94a3b8; margin: 12px 0 8px; font-weight: 600; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fill,minmax(64px,1fr)); gap: 6px; }
+    .levelbtn { padding: 8px 4px; text-align: center; border: 1px solid rgba(71,85,105,0.3);
+      border-radius: 8px; background: rgba(30,41,59,0.5); cursor: pointer;
+      font-size: 12px; font-weight: 600; color: #cbd5e1; transition: all 0.15s; }
+    .levelbtn:hover { background: rgba(59,130,246,0.2); border-color: #3b82f6; }
+    .levelbtn:active { transform: scale(0.95); }
     .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 
     [hidden] { display: none !important; }
     .hidden { display: none !important; pointer-events: none; }
 
-    #timers { display: flex; gap: 8px; align-items: center; justify-content: center; flex-wrap: wrap; }
-    .timer { display: flex; align-items: center; gap: 6px; }
-    .bar { width: 120px; height: 8px; border-radius: 999px; background: #1b2a5e; overflow: hidden; }
-    .fill { height: 100%; background: linear-gradient(90deg, #ffd166, #ffffff); }
-    .fill-pierce { background: linear-gradient(90deg, #ef476f, #ffffff); }
+    #timers { display: none; gap: 8px; align-items: center; justify-content: center; flex-wrap: wrap; }
+    #timers.active { display: flex; }
+    .timer { display: flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 600; }
+    .bar { width: 80px; height: 5px; border-radius: 10px; background: rgba(30,41,59,0.8); overflow: hidden; }
+    .fill { height: 100%; background: linear-gradient(90deg, #fbbf24, #f59e0b); border-radius: 10px; }
+    .fill-pierce { background: linear-gradient(90deg, #f472b6, #ec4899); }
 
-    /* Touch L/R overlay aligned to canvas area only */
     #touchControls { position: fixed; left: 0; top: 0; width: 0; height: 0; display: none; z-index: 5; }
     .zone { position: absolute; top: 0; bottom: 0; width: 50%; opacity: 0; touch-action: none; }
     .zone.left { left: 0; }
     .zone.right { right: 0; }
 
-    /* Settings form */
-    .form { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 8px; }
-    .form .item { background: #12183a; border: 1px solid #2a2f55; border-radius: 8px; padding: 10px; }
-    .form label { display: flex; align-items: center; gap: 8px; }
-    .select { width: 100%; padding: 6px; border-radius: 6px; border: 1px solid #2a2f55; background:#0f1430; color:#eaeaf0; }
+    .form { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 8px; }
+    .form .item { background: rgba(30,41,59,0.5); border: 1px solid rgba(71,85,105,0.3);
+      border-radius: 8px; padding: 8px 10px; }
+    .form label { display: flex; align-items: center; gap: 8px; font-size: 12px; }
+    .select { width: 100%; padding: 5px 8px; border-radius: 6px;
+      border: 1px solid rgba(71,85,105,0.3); background: #0f172a; color: #e2e8f0; font-size: 12px; }
   </style>
 </head>
 <body>
+  <!-- Title Screen -->
+  <div id="titleScreen">
+    <div class="title-content">
+      <div class="title-logo">BRICK<br>BREAKER</div>
+      <div class="title-sub">Hyper Casual</div>
+      <div class="title-buttons">
+        <button id="playBtn" class="btn btn-lg title-btn">PLAY</button>
+        <button id="levelsBtn" class="btn btn-outline title-btn">LEVELS</button>
+        <button id="settingsBtn" class="btn btn-outline title-btn">SETTINGS</button>
+      </div>
+      <div class="title-footer">Arrow Keys / Touch to play</div>
+    </div>
+  </div>
+
+  <!-- Game UI -->
   <div id="wrap">
-    <h1 style="margin:6px 0 0">Brick Breaker – PWA</h1>
-    <div class="hud">
-      <div class="tag">Mod: <span id="modeTag">Nivel</span></div>
-      <div class="tag">Scor: <span id="score">0</span></div>
-      <div class="tag">Vieți: <span id="lives">3</span></div>
-      <div class="tag">Etapa: <span id="stage">1</span></div>
-      <button id="menuBtn" class="btn">Meniu</button>
+    <div class="hud" id="hud">
+      <div class="tag">Mode: <span class="val" id="modeTag">Campaign</span></div>
+      <div class="tag">Score: <span class="val" id="score">0</span></div>
+      <div class="tag">Lives: <span class="val" id="lives">3</span></div>
+      <div class="tag">Level: <span class="val" id="stage">1</span></div>
+      <button id="menuBtn" class="btn">Menu</button>
       <button id="reset" class="btn">Reset</button>
-      <button id="pause" class="btn">Pauză</button>
-      <button id="soundBtn" class="btn" title="Sound On/Off">🔊 Sunet: ON</button>
-      <button id="installBtn" class="btn" style="display:none">Instalează</button>
+      <button id="pause" class="btn">Pause</button>
+      <button id="soundBtn" class="btn" title="Sound On/Off">Sound: ON</button>
     </div>
     <div id="timers">
       <div class="timer" id="wideTimerBox" hidden>
@@ -80,68 +138,56 @@
       </div>
     </div>
     <canvas id="game" width="800" height="600" aria-label="Brick Breaker"></canvas>
-    <div class="legend">Controale: ←/→, A/D, P pauză, R reset. Pe mobil: Drag paleta sau Tap stânga/dreapta.</div>
+    <div class="legend" id="legend">Arrow Keys / A/D, P pause, R reset. Mobile: drag or tap L/R.</div>
   </div>
 
-  <!-- Meniu (Level + Settings) -->
-  <div id="menu" class="hidden" hidden>
+  <!-- Menu -->
+  <div id="menu">
     <div class="panel">
-      <h2>Meniu</h2>
+      <h2>Brick Breaker</h2>
       <div class="row">
-        <button id="chooseLevelMode" class="btn">Mod Nivel</button>
-        <button id="chooseEndless" class="btn">Mod Endless</button>
+        <button id="chooseLevelMode" class="btn">Campaign</button>
+        <button id="chooseEndless" class="btn">Endless</button>
         <div style="flex:1"></div>
-        <button id="closeMenu" class="btn" title="ESC">Închide</button>
+        <button id="closeMenu" class="btn" title="ESC">Close</button>
       </div>
-      <hr/>
-      <h3>Niveluri</h3>
+      <hr style="border-color:rgba(71,85,105,0.2);margin:12px 0"/>
+      <h3>Levels</h3>
       <div class="grid" id="levelGrid"></div>
-      <hr/>
-      <h3>Setări</h3>
+      <hr style="border-color:rgba(71,85,105,0.2);margin:12px 0"/>
+      <h3>Settings</h3>
       <div class="form">
-        <div class="item"><label><input type="checkbox" id="optSound"> Sunet ON</label></div>
-        <div class="item"><label><input type="checkbox" id="optParticles"> Particule ON</label></div>
+        <div class="item"><label><input type="checkbox" id="optSound" checked> Sound ON</label></div>
+        <div class="item"><label><input type="checkbox" id="optParticles" checked> Particles ON</label></div>
         <div class="item">
           <label style="justify-content:space-between;width:100%">
-            Control mobil
+            Mobile Controls
             <select id="optControl" class="select">
-              <option value="drag">Drag paleta</option>
-              <option value="tap">Tap Stânga/Dreapta</option>
+              <option value="drag">Drag paddle</option>
+              <option value="tap">Tap Left/Right</option>
             </select>
           </label>
         </div>
         <div class="item">
           <label style="justify-content:space-between;width:100%">
-            Temă
-            <select id="optTheme" class="select">
-              <option value="color">Color</option>
-              <option value="retro">Retro alb-negru</option>
-            </select>
-          </label>
-        </div>
-        <div class="item">
-          <label style="justify-content:space-between;width:100%">
-            Dificultate
+            Difficulty
             <select id="optDifficulty" class="select">
               <option value="normal">Normal</option>
               <option value="hard">Hard</option>
             </select>
           </label>
         </div>
-        <div class="item"><button id="saveSettings" class="btn" style="width:100%">Salvează setări</button></div>
       </div>
     </div>
   </div>
 
-  <!-- Touch controls (aligned to canvas only) -->
   <div id="touchControls">
     <div class="zone left"></div>
     <div class="zone right"></div>
   </div>
 
-  <!-- Scripts -->
   <script defer src="./levels.js"></script>
-  <script defer src="./game_settings.js"></script>
+  <script defer src="./game.js"></script>
   <script defer src="./pwa.js"></script>
 </body>
 </html>
